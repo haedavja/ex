@@ -36,10 +36,13 @@ export function LegacyBattleScreen() {
     const handler = (event) => {
       const data = event.data;
       if (!data || typeof data !== "object") return;
+      console.log("[LegacyBattleScreen] Received message:", data);
       if (data.type === "battleReady") {
+        console.log("[LegacyBattleScreen] Battle ready, sending init");
         postInit();
       }
       if (data.type === "battleResult") {
+        console.log("[LegacyBattleScreen] Battle result:", data.result);
         const result = data.result === "victory" ? "victory" : "defeat";
         resolveBattle({ result });
       }

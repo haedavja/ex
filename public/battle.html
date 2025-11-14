@@ -1029,21 +1029,6 @@
             }
           }, [selected, phase, enemyPlan.actions]);
 
-          useEffect(()=>{
-            if(player.hp <= 0){
-              setTimeout(() => {
-                window.parent.postMessage({ type: 'battleResult', result: 'defeat' }, '*');
-              }, 1000);
-            }
-          }, [player.hp]);
-
-          useEffect(()=>{
-            if(enemy.hp <= 0 && enemyIndex >= ENEMIES.length - 1){
-              setTimeout(() => {
-                window.parent.postMessage({ type: 'battleResult', result: 'victory' }, '*');
-              }, 1000);
-            }
-          }, [enemy.hp, enemyIndex]);
 
           const beginResolveFromRespond = ()=>{
             if(!fixedOrder) return addLog('오류: 고정된 순서가 없습니다');
@@ -1226,9 +1211,6 @@
               setEnemyIndex(next); setSelected([]); setHand(CARDS.slice(0,8)); setEnemyPlan({ actions:[], mode: null }); setFixedOrder(null); setQueue([]); setQIndex(0); setCanRedraw(true); setPostCombatOptions(null); addLog(`➡️ 다음 몬스터 등장: ${e.name} (손패 리셋)`); setPhase('select');
             } else {
               addLog('🏆 모든 적 처치 - 게임 끝');
-              setTimeout(() => {
-                window.parent.postMessage({ type: 'battleResult', result: 'victory' }, '*');
-              }, 500);
             }
           };
 
@@ -1487,14 +1469,33 @@
                         </button>
                       )}
                       {enemy && enemy.hp <= 0 && (
-                        <button onClick={nextEnemy} disabled={enemyIndex >= ENEMIES.length - 1} className="btn-enhanced flex items-center gap-2">
-                          ➡️ 다음 적
-                        </button>
+                        <>
+                          {enemyIndex < ENEMIES.length - 1 ? (
+                            <button onClick={nextEnemy} className="btn-enhanced flex items-center gap-2">
+                              ➡️ 다음 적
+                            </button>
+                          ) : (
+                            <button onClick={()=>{
+                              console.log('[Battle] Return to map button clicked, sending victory');
+                              window.parent.postMessage({ type: 'battleResult', result: 'victory' }, '*');
+                            }} className="btn-enhanced btn-primary flex items-center gap-2">
+                              🏆 맵으로 돌아가기
+                            </button>
+                          )}
+                        </>
                       )}
                       {player && player.hp <= 0 && (
-                        <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
-                          🔄 재시작
-                        </button>
+                        <>
+                          <button onClick={()=>{
+                            console.log('[Battle] Return to map button clicked (defeat), sending defeat');
+                            window.parent.postMessage({ type: 'battleResult', result: 'defeat' }, '*');
+                          }} className="btn-enhanced btn-primary flex items-center gap-2">
+                            💀 맵으로 돌아가기
+                          </button>
+                          <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
+                            🔄 재시작
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1548,9 +1549,20 @@
                         <Play size={20}/> 진행 시작
                       </button>
                       {enemy && enemy.hp <= 0 && (
-                        <button onClick={nextEnemy} disabled={enemyIndex >= ENEMIES.length - 1} className="btn-enhanced flex items-center gap-2">
-                          ➡️ 다음 적
-                        </button>
+                        <>
+                          {enemyIndex < ENEMIES.length - 1 ? (
+                            <button onClick={nextEnemy} className="btn-enhanced flex items-center gap-2">
+                              ➡️ 다음 적
+                            </button>
+                          ) : (
+                            <button onClick={()=>{
+                              console.log('[Battle] Return to map button clicked, sending victory');
+                              window.parent.postMessage({ type: 'battleResult', result: 'victory' }, '*');
+                            }} className="btn-enhanced btn-primary flex items-center gap-2">
+                              🏆 맵으로 돌아가기
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -1638,14 +1650,33 @@
                         </>
                       )}
                       {enemy && enemy.hp <= 0 && (
-                        <button onClick={nextEnemy} disabled={enemyIndex >= ENEMIES.length - 1} className="btn-enhanced flex items-center gap-2">
-                          ➡️ 다음 적
-                        </button>
+                        <>
+                          {enemyIndex < ENEMIES.length - 1 ? (
+                            <button onClick={nextEnemy} className="btn-enhanced flex items-center gap-2">
+                              ➡️ 다음 적
+                            </button>
+                          ) : (
+                            <button onClick={()=>{
+                              console.log('[Battle] Return to map button clicked, sending victory');
+                              window.parent.postMessage({ type: 'battleResult', result: 'victory' }, '*');
+                            }} className="btn-enhanced btn-primary flex items-center gap-2">
+                              🏆 맵으로 돌아가기
+                            </button>
+                          )}
+                        </>
                       )}
                       {player && player.hp <= 0 && (
-                        <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
-                          🔄 재시작
-                        </button>
+                        <>
+                          <button onClick={()=>{
+                            console.log('[Battle] Return to map button clicked (defeat), sending defeat');
+                            window.parent.postMessage({ type: 'battleResult', result: 'defeat' }, '*');
+                          }} className="btn-enhanced btn-primary flex items-center gap-2">
+                            💀 맵으로 돌아가기
+                          </button>
+                          <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
+                            🔄 재시작
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
