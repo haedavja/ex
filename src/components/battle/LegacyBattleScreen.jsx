@@ -21,8 +21,25 @@ const buildBattlePayload = (battle) => {
 export function LegacyBattleScreen() {
   const activeBattle = useGameStore((state) => state.activeBattle);
   const resolveBattle = useGameStore((state) => state.resolveBattle);
+  const resources = useGameStore((state) => state.resources);
   const iframeRef = useRef(null);
-  const payload = useMemo(() => buildBattlePayload(activeBattle), [activeBattle]);
+  const payload = useMemo(() => {
+    if (!activeBattle) return null;
+    const initialPlayer = activeBattle.simulation?.initialState?.player;
+    const initialEnemy = activeBattle.simulation?.initialState?.enemy;
+    return {
+      player: {
+        hp: initialPlayer?.hp ?? 30,
+        maxHp: initialPlayer?.hp ?? 30,
+        energy: 6,
+        etherPts: resources.aether ?? 0,
+      },
+      enemy: {
+        name: activeBattle.label ?? "Enemy",
+        hp: initialEnemy?.hp ?? 30,
+      },
+    };
+  }, [activeBattle, resources.aether]);
   const frameKey = activeBattle ? `${activeBattle.nodeId}-${activeBattle.kind}` : "idle";
 
   const postInit = () => {
@@ -42,9 +59,9 @@ export function LegacyBattleScreen() {
         postInit();
       }
       if (data.type === "battleResult") {
-        console.log("[LegacyBattleScreen] Battle result:", data.result);
+        console.log("[LegacyBattleScreen] Battle result:", data.result, "etherPts:", data.etherPts);
         const result = data.result === "victory" ? "victory" : "defeat";
-        resolveBattle({ result });
+        resolveBattle({ result, etherPts: data.etherPts });
       }
     };
     window.addEventListener("message", handler);

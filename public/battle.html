@@ -914,6 +914,25 @@
           },[]);
 
           useEffect(()=>{
+            const handleMessage = (event) => {
+              const data = event.data;
+              if (!data || typeof data !== 'object') return;
+              console.log('[Battle] Received message:', data);
+
+              if (data.type === 'battleInit' && data.payload) {
+                console.log('[Battle] Initializing with aether:', data.payload.player?.etherPts);
+                if (data.payload.player?.etherPts !== undefined) {
+                  setPlayer(p => ({ ...p, etherPts: Math.max(0, data.payload.player.etherPts) }));
+                  addLog(`✴️ 에테르 ${data.payload.player.etherPts}pt로 전투 시작`);
+                }
+                window.parent.postMessage({ type: 'battleReady' }, '*');
+              }
+            };
+            window.addEventListener('message', handleMessage);
+            return () => window.removeEventListener('message', handleMessage);
+          }, []);
+
+          useEffect(()=>{
             if(!enemy || phase!=='select') return;
             setFixedOrder(null);
             setActionEvents({});
@@ -1470,8 +1489,8 @@
                       )}
                       {enemy && enemy.hp <= 0 && (
                         <button onClick={()=>{
-                          console.log('[Battle] Return to map button clicked, sending victory');
-                          window.parent.postMessage({ type: 'battleResult', result: 'victory' }, '*');
+                          console.log('[Battle] Return to map button clicked, sending victory with aether:', player.etherPts);
+                          window.parent.postMessage({ type: 'battleResult', result: 'victory', etherPts: Math.max(0, player.etherPts) }, '*');
                         }} className="btn-enhanced btn-primary flex items-center gap-2">
                           🏆 맵으로 돌아가기
                         </button>
@@ -1479,8 +1498,8 @@
                       {player && player.hp <= 0 && (
                         <>
                           <button onClick={()=>{
-                            console.log('[Battle] Return to map button clicked (defeat), sending defeat');
-                            window.parent.postMessage({ type: 'battleResult', result: 'defeat' }, '*');
+                            console.log('[Battle] Return to map button clicked (defeat), sending defeat with aether:', player.etherPts);
+                            window.parent.postMessage({ type: 'battleResult', result: 'defeat', etherPts: Math.max(0, player.etherPts) }, '*');
                           }} className="btn-enhanced btn-primary flex items-center gap-2">
                             💀 맵으로 돌아가기
                           </button>
@@ -1542,8 +1561,8 @@
                       </button>
                       {enemy && enemy.hp <= 0 && (
                         <button onClick={()=>{
-                          console.log('[Battle] Return to map button clicked, sending victory');
-                          window.parent.postMessage({ type: 'battleResult', result: 'victory' }, '*');
+                          console.log('[Battle] Return to map button clicked, sending victory with aether:', player.etherPts);
+                          window.parent.postMessage({ type: 'battleResult', result: 'victory', etherPts: Math.max(0, player.etherPts) }, '*');
                         }} className="btn-enhanced btn-primary flex items-center gap-2">
                           🏆 맵으로 돌아가기
                         </button>
@@ -1635,8 +1654,8 @@
                       )}
                       {enemy && enemy.hp <= 0 && (
                         <button onClick={()=>{
-                          console.log('[Battle] Return to map button clicked, sending victory');
-                          window.parent.postMessage({ type: 'battleResult', result: 'victory' }, '*');
+                          console.log('[Battle] Return to map button clicked, sending victory with aether:', player.etherPts);
+                          window.parent.postMessage({ type: 'battleResult', result: 'victory', etherPts: Math.max(0, player.etherPts) }, '*');
                         }} className="btn-enhanced btn-primary flex items-center gap-2">
                           🏆 맵으로 돌아가기
                         </button>
@@ -1644,8 +1663,8 @@
                       {player && player.hp <= 0 && (
                         <>
                           <button onClick={()=>{
-                            console.log('[Battle] Return to map button clicked (defeat), sending defeat');
-                            window.parent.postMessage({ type: 'battleResult', result: 'defeat' }, '*');
+                            console.log('[Battle] Return to map button clicked (defeat), sending defeat with aether:', player.etherPts);
+                            window.parent.postMessage({ type: 'battleResult', result: 'defeat', etherPts: Math.max(0, player.etherPts) }, '*');
                           }} className="btn-enhanced btn-primary flex items-center gap-2">
                             💀 맵으로 돌아가기
                           </button>

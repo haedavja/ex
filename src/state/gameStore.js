@@ -308,9 +308,16 @@ export const useGameStore = create((set, get) => ({
       const autoResult = pickOutcome(state.activeBattle.simulation, "victory");
     const resultLabel = outcome.result ?? autoResult;
     const rewards = resultLabel === "victory" ? grantRewards(rewardsDef, state.resources) : { next: state.resources, applied: {} };
+
+    // Update aether from battle
+    const updatedResources = { ...rewards.next };
+    if (outcome.etherPts !== undefined) {
+      updatedResources.aether = Math.max(0, outcome.etherPts);
+    }
+
     return {
       ...state,
-      resources: rewards.next,
+      resources: updatedResources,
       activeBattle: null,
       lastBattleResult: {
         nodeId: state.activeBattle.nodeId,
