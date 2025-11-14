@@ -116,6 +116,7 @@ export function MapDemo() {
   const skipDungeon = useGameStore((state) => state.skipDungeon);
   const revealDungeonInfo = useGameStore((state) => state.revealDungeonInfo);
   const clearBattleResult = useGameStore((state) => state.clearBattleResult);
+  const resetRun = useGameStore((state) => state.resetRun);
 
   const [battleResultCountdown, setBattleResultCountdown] = useState(3);
 
@@ -214,6 +215,9 @@ export function MapDemo() {
       <header>
         <h1>로그라이크 경로 지도</h1>
         <small>속도 시스템 기준 · React + Vite 시연</small>
+        <button onClick={resetRun} style={{marginLeft: '20px', padding: '8px 16px', cursor: 'pointer'}}>
+          🔄 새 게임
+        </button>
       </header>
 
       <div className="legend">
