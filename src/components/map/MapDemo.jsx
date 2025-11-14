@@ -177,13 +177,7 @@ export function MapDemo() {
     setBattleResultCountdown(3);
 
     const countdownInterval = setInterval(() => {
-      setBattleResultCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
+      setBattleResultCountdown((prev) => prev > 0 ? prev - 1 : 0);
     }, 1000);
 
     const closeTimer = setTimeout(() => {
@@ -194,7 +188,7 @@ export function MapDemo() {
       clearInterval(countdownInterval);
       clearTimeout(closeTimer);
     };
-  }, [lastBattleResult, clearBattleResult]);
+  }, [lastBattleResult]);
 
   const availablePrayers = useMemo(
     () => PRAYER_COSTS.filter((cost) => (resources.aether ?? 0) >= cost),
