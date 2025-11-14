@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>통합 로그라이크 게임</title>
+
+    <!-- React 18 -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Phaser 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+        :root {
+            font-family: 'Noto Sans KR', 'Inter', 'Pretendard', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            color: #f4f6ff;
+            background: #07090f;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0a0a0a;
+        }
+
+        #root {
+            width: 100%;
+            min-height: 100vh;
+        }
+
+        /* ==================== MAP STYLES ==================== */
+        .map-container {
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 0%, rgba(34, 64, 122, 0.45), rgba(2, 4, 9, 0.9));
+            padding: 32px;
+        }
+
+        .app {
+            max-width: 1080px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        header {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        header small {
+            color: #9da9d6;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .legend span {
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(118, 134, 185, 0.4);
+            background: rgba(12, 18, 32, 0.7);
+        }
+
+        .resource-hud {
+            position: fixed;
+            left: 140px;
+            bottom: 32px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(8, 11, 19, 0.92);
+            border: 1px solid rgba(98, 151, 255, 0.3);
+            z-index: 60;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        .resource-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(14, 20, 33, 0.9);
+            border: 1px solid rgba(84, 126, 194, 0.5);
+            font-size: 13px;
+        }
+
+        .aether-column {
+            position: fixed;
+            left: 32px;
+            top: 140px;
+            width: 70px;
+            padding: 10px;
+            border-radius: 36px;
+            background: linear-gradient(180deg, rgba(8, 12, 20, 0.95), rgba(10, 15, 25, 0.75));
+            border: 1px solid rgba(96, 210, 255, 0.4);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 55;
+        }
+
+        .aether-title {
+            font-size: 13px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            text-align: center;
+            color: #5fe0ff;
+        }
+
+        .aether-bar {
+            position: relative;
+            width: 46px;
+            height: 260px;
+            border-radius: 30px;
+            border: 2px solid #53d7ff;
+            margin: 0 auto;
+            background: rgba(9, 17, 27, 0.95);
+            overflow: hidden;
+        }
+
+        .aether-fill {
+            position: absolute;
+            left: 3px;
+            right: 3px;
+            bottom: 3px;
+            border-radius: 24px;
+            background: linear-gradient(180deg, #6affff 0%, #0f7ebd 100%);
+            height: 0%;
+            transition: height 0.2s ease;
+        }
+
+        .aether-remaining {
+            text-align: center;
+            color: #8fd3ff;
+            font-size: 13px;
+            line-height: 1.3;
+        }
+
+        .event-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(1, 3, 8, 0.65);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 80;
+            padding: 20px;
+        }
+
+        .event-modal {
+            width: min(440px, 100%);
+            max-height: 85vh;
+            overflow-y: auto;
+            background: rgba(8, 11, 19, 0.98);
+            border: 1px solid rgba(195, 115, 255, 0.35);
+            border-radius: 18px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .event-modal h2 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .event-modal p {
+            margin: 0;
+            color: #c9cfe7;
+            line-height: 1.5;
+        }
+
+        .event-choices {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .choice-card {
+            border: 1px solid rgba(118, 134, 185, 0.35);
+            border-radius: 12px;
+            padding: 12px;
+            background: rgba(14, 18, 30, 0.85);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .choice-card button {
+            align-self: flex-start;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            background: #4d7dff;
+            color: white;
+            font-weight: 600;
+        }
+
+        .choice-card button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .event-result {
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 10px;
+            color: #9ad1d6;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .risk-indicator {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            padding: 10px 16px;
+            border-radius: 12px;
+            background: rgba(7, 11, 18, 0.9);
+            border: 1px solid rgba(255, 110, 135, 0.35);
+            color: #ffe6ef;
+            font-size: 13px;
+            letter-spacing: 0.04em;
+            z-index: 60;
+        }
+
+        .close-btn {
+            align-self: flex-end;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            background: #6c7bff;
+            color: white;
+            font-weight: 600;
+        }
+
+        .map {
+            position: relative;
+            min-height: 780px;
+            border-radius: 18px;
+            border: 1px solid rgba(109, 134, 181, 0.2);
+            background: rgba(5, 8, 13, 0.92);
+            overflow: hidden;
+        }
+
+        .node {
+            position: absolute;
+            width: 96px;
+            height: 100px;
+            border-radius: 18px;
+            background: rgba(21, 27, 44, 0.95);
+            border: 2px solid rgba(73, 92, 143, 0.6);
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            pointer-events: auto;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 11px;
+            transition: transform 0.16s, border 0.16s, background 0.16s;
+        }
+
+        .node .icon {
+            font-size: 26px;
+        }
+
+        .node.selectable {
+            cursor: pointer;
+            border-color: #68c9ff;
+            background: rgba(54, 72, 116, 0.85);
+            box-shadow: 0 0 16px rgba(104, 201, 255, 0.45);
+        }
+
+        .node.selectable:hover {
+            transform: translateY(-6px);
+        }
+
+        .node.cleared {
+            border-color: #6ef19e;
+            background: rgba(22, 52, 34, 0.9);
+        }
+
+        .node.boss {
+            border-color: #ff5c8d;
+        }
+
+        .edge {
+            position: absolute;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .edge line {
+            stroke: rgba(102, 148, 255, 0.35);
+            stroke-width: 1.4;
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 6px rgba(68, 107, 196, 0.25));
+        }
+
+        aside {
+            background: rgba(6, 10, 18, 0.95);
+            border: 1px solid rgba(104, 201, 255, 0.2);
+            border-radius: 14px;
+            padding: 18px;
+        }
+
+        aside h2 {
+            margin-top: 0;
+        }
+
+        /* ==================== DUNGEON STYLES ==================== */
+        .dungeon-container {
+            width: 100%;
+            height: 100vh;
+            background: #000;
+            overflow: hidden;
+        }
+
+        /* ==================== BATTLE STYLES ==================== */
+        .card-enhanced {
+            background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+            border: 3px solid #444;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-enhanced::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(145deg, transparent 0%, rgba(255,255,255,0.05) 100%);
+            pointer-events: none;
+        }
+
+        .card-enhanced:hover:not(.disabled) {
+            transform: translateY(-5px) scale(1.02);
+            border-color: #fbbf24;
+            box-shadow: 0 10px 30px rgba(251, 191, 36, 0.3);
+        }
+
+        .card-enhanced.selected {
+            border-color: #3b82f6;
+            background: linear-gradient(145deg, #1e3a8a 0%, #1e40af 100%);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .card-enhanced.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .attack-card {
+            border-color: #ef4444 !important;
+            background: linear-gradient(145deg, #7f1d1d 0%, #991b1b 100%) !important;
+        }
+
+        .attack-card:hover:not(.disabled) {
+            border-color: #f87171 !important;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4) !important;
+        }
+
+        .defense-card {
+            border-color: #3b82f6 !important;
+            background: linear-gradient(145deg, #1e3a8a 0%, #1e40af 100%) !important;
+        }
+
+        .defense-card:hover:not(.disabled) {
+            border-color: #60a5fa !important;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4) !important;
+        }
+
+        .btn-enhanced {
+            background: linear-gradient(145deg, #1e40af, #1e3a8a);
+            border: 2px solid #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-enhanced:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .btn-enhanced:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(145deg, #f59e0b, #d97706);
+            border-color: #fbbf24;
+        }
+
+        .btn-success {
+            background: linear-gradient(145deg, #059669, #047857);
+            border-color: #10b981;
+        }
+
+        .game-card-large {
+            position: relative;
+            width: 140px;
+            height: 200px;
+            border-radius: 16px;
+            border: 4px solid;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .game-card-large.attack {
+            border-color: #ff6b6b;
+            background: linear-gradient(180deg, #8B0000 0%, #4a0000 100%);
+        }
+
+        .game-card-large.defense {
+            border-color: #4dabf7;
+            background: linear-gradient(180deg, #1e40af 0%, #0c1e4a 100%);
+        }
+
+        .game-card-large:hover:not(.disabled) {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+
+        .game-card-large.selected {
+            transform: translateY(-20px);
+            box-shadow: 0 20px 50px rgba(251, 191, 36, 0.8);
+            border-color: #fbbf24;
+        }
+
+        .game-card-large.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .card-cost-corner {
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle, #fbbf24, #f59e0b);
+            border-radius: 50%;
+            border: 3px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 20px;
+            color: #000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+            z-index: 2;
+        }
+
+        .hp-bar-enhanced {
+            position: relative;
+            height: 20px;
+            background: linear-gradient(to right, #450a0a, #7f1d1d);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #450a0a;
+        }
+
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .hp-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.3), transparent);
+        }
+
+        .battle-arena {
+            position: relative;
+            min-height: 500px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%);
+            border-radius: 20px;
+            border: 3px solid #475569;
+            padding: 32px 48px !important;
+        }
+
+        .hand-area {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.95) 20%, rgba(0,0,0,0.98) 100%);
+            padding: 20px;
+            border-top: 3px solid #475569;
+            z-index: 100;
+        }
+
+        .hand-cards {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            max-width: 1400px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+
+        .panel-enhanced {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 2px solid #334155;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Navigation button */
+        .nav-back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 999;
+            background: linear-gradient(145deg, #1e40af, #1e3a8a);
+            border: 2px solid #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .nav-back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // ==================== SHARED GAME STATE ====================
+        const INITIAL_RESOURCES = { gold: 40, intel: 2, loot: 1, material: 1, aether: 5 };
+        const INITIAL_CHAR_STATS = {
+            hp: { current: 30, max: 30 },
+            energy: { current: 6, max: 6 },
+            speed: 30,
+            power: 0,
+        };
+        const INITIAL_DECK = [
+            { slot: 1, name: "Quick Slash", type: "공격", speed: 3, ap: 1, desc: "빠른 근접 공격, 선제용" },
+            { slot: 2, name: "Guard Stance", type: "방어", speed: 6, ap: 1, desc: "기본 방어자세, 방어력 확보" },
+            { slot: 3, name: "Parry", type: "반격", speed: 2, ap: 1, desc: "공격을 흘려 반격" },
+            { slot: 4, name: "Focus Heal", type: "회복", speed: 10, ap: 2, desc: "집중 치유, 체력 회복" },
+            { slot: 5, name: "Feint Strike", type: "공격", speed: 4, ap: 1, desc: "하이리스크 하이리턴 공격" },
+            { slot: 6, name: "Adrenaline Surge", type: "버프", speed: 4, ap: 2, desc: "속도/행동력 버프" },
+        ];
+
+        // ==================== MAP COMPONENT ====================
+        function MapScreen({ gameState, setGameState, onNodeSelect }) {
+            const [activeEvent, setActiveEvent] = useState(null);
+
+            // Event library (from map.html)
+            const EVENT_LIBRARY = {
+                'event-entry-center': {
+                    title: '폐허가 된 무기고',
+                    description: '붕괴된 요새 안쪽에서 기계음이 새어 나온다.',
+                    choices: [
+                        {
+                            id: 'fight',
+                            label: '기계병과 정면 교전',
+                            detail: '전투로 자원을 탈환한다.',
+                            rewards: { loot: { min: 3, max: 5 }, gold: 20 },
+                            penalty: { loot: { min: 1, max: 2 }, gold: { min: 5, max: 10 } },
+                            successText: '기계병을 격파하고 창고를 확보했다.',
+                            failureText: '경보가 울려 피해만 입고 철수했다.',
+                        },
+                    ],
+                },
+            };
+
+            const { mapState, resources, mapRisk } = gameState;
+
+            const handleNodeClick = (node) => {
+                if (!node.selectable || node.cleared) return;
+
+                // Mark node as cleared and update map state
+                const updatedNodes = mapState.nodes.map(n => {
+                    if (n.id === node.id) {
+                        return { ...n, cleared: true, selectable: false };
+                    }
+                    return n;
+                });
+
+                // Make connected nodes selectable
+                node.connections.forEach(connId => {
+                    const connIndex = updatedNodes.findIndex(n => n.id === connId);
+                    if (connIndex !== -1 && !updatedNodes[connIndex].cleared) {
+                        updatedNodes[connIndex].selectable = true;
+                    }
+                });
+
+                setGameState({
+                    ...gameState,
+                    mapState: {
+                        ...mapState,
+                        nodes: updatedNodes,
+                        currentNodeId: node.id,
+                    }
+                });
+
+                // Navigate to appropriate screen based on node type
+                if (node.type === 'dungeon') {
+                    onNodeSelect('dungeon', node);
+                } else if (node.type === 'battle' || node.type === 'elite') {
+                    onNodeSelect('battle', node);
+                } else if (node.type === 'event' && !node.isStart) {
+                    // Show event modal
+                    const key = node.eventKey || 'event-entry-center';
+                    const definition = EVENT_LIBRARY[key];
+                    if (definition) {
+                        setActiveEvent({
+                            definition,
+                            resolved: false,
+                            outcome: null,
+                        });
+                    }
+                } else if (node.type === 'rest') {
+                    // Heal player
+                    const healAmount = Math.floor(gameState.characterStats.hp.max * 0.3);
+                    setGameState({
+                        ...gameState,
+                        characterStats: {
+                            ...gameState.characterStats,
+                            hp: {
+                                ...gameState.characterStats.hp,
+                                current: Math.min(
+                                    gameState.characterStats.hp.max,
+                                    gameState.characterStats.hp.current + healAmount
+                                ),
+                            },
+                        },
+                    });
+                    alert(`휴식 완료! 체력 ${healAmount} 회복`);
+                } else if (node.type === 'shop') {
+                    alert('상점 기능은 추후 구현 예정입니다.');
+                } else if (node.type === 'boss') {
+                    onNodeSelect('battle', { ...node, isBoss: true });
+                }
+            };
+
+            const closeEventModal = () => {
+                setActiveEvent(null);
+            };
+
+            // SVG line drawing
+            const SVG_NS = 'http://www.w3.org/2000/svg';
+            const drawEdge = (startNode, endNode) => {
+                const NODE_WIDTH = 96;
+                const NODE_HEIGHT = 100;
+                const startX = startNode.x;
+                const startY = startNode.y;
+                const endX = endNode.x;
+                const endY = endNode.y;
+
+                const left = Math.min(startX, endX) - NODE_WIDTH / 2;
+                const top = Math.min(startY, endY) - NODE_HEIGHT / 2;
+                const width = Math.max(4, Math.abs(endX - startX) + NODE_WIDTH);
+                const height = Math.max(4, Math.abs(endY - startY) + NODE_HEIGHT);
+
+                return (
+                    <svg
+                        key={`edge-${startNode.id}-${endNode.id}`}
+                        className="edge"
+                        width={width}
+                        height={height}
+                        viewBox={`0 0 ${width} ${height}`}
+                        style={{ left: `${left}px`, top: `${top}px`, position: 'absolute' }}
+                    >
+                        <line
+                            x1={startX - left}
+                            y1={startY - top}
+                            x2={endX - left}
+                            y2={endY - top}
+                        />
+                    </svg>
+                );
+            };
+
+            const ICON_MAP = {
+                battle: '⚔️',
+                elite: '👹',
+                shop: '🛒',
+                event: '❓',
+                rest: '🔥',
+                boss: '💀',
+                dungeon: '🏰',
+            };
+
+            const LEGEND = [
+                { icon: '⚔️', label: '전투' },
+                { icon: '👹', label: '정예' },
+                { icon: '🏰', label: '던전' },
+                { icon: '🛒', label: '상점' },
+                { icon: '❓', label: '이벤트' },
+                { icon: '🔥', label: '휴식' },
+                { icon: '💀', label: '보스' },
+            ];
+
+            const RESOURCE_LABELS = { gold: '금', intel: '정보', loot: '전리품', material: '원자재', aether: '에테르' };
+            const AETHER_DISPLAY_MAX = 10;
+
+            return (
+                <div className="map-container">
+                    <div className="app">
+                        <header>
+                            <h1>로그라이크 경로 선택 맵</h1>
+                            <p>현재 위치: {mapState.currentNodeId}</p>
+                            <div className="legend">
+                                {LEGEND.map((item, i) => (
+                                    <span key={i}>{item.icon} {item.label}</span>
+                                ))}
+                            </div>
+                        </header>
+
+                        <section className="map" style={{ minHeight: '780px' }}>
+                            {/* Draw edges */}
+                            {mapState.nodes.map(node =>
+                                node.connections.map(targetId => {
+                                    const target = mapState.nodes.find(n => n.id === targetId);
+                                    return target ? drawEdge(node, target) : null;
+                                })
+                            )}
+
+                            {/* Draw nodes */}
+                            {mapState.nodes.map(node => {
+                                const classes = ['node', node.type];
+                                if (node.selectable && !node.cleared) classes.push('selectable');
+                                if (node.cleared) classes.push('cleared');
+
+                                const NODE_WIDTH = 96;
+                                const NODE_HEIGHT = 100;
+
+                                return (
+                                    <button
+                                        key={node.id}
+                                        className={classes.join(' ')}
+                                        style={{
+                                            left: `${node.x - NODE_WIDTH / 2}px`,
+                                            top: `${node.y - NODE_HEIGHT / 2}px`,
+                                        }}
+                                        onClick={() => handleNodeClick(node)}
+                                    >
+                                        {!node.isStart && <span className="icon">{ICON_MAP[node.type] || ''}</span>}
+                                        <span>{node.displayLabel || node.type}</span>
+                                    </button>
+                                );
+                            })}
+                        </section>
+                    </div>
+
+                    {/* Resource HUD */}
+                    <div className="resource-hud">
+                        {Object.entries(resources)
+                            .filter(([key]) => key !== 'aether')
+                            .map(([key, value]) => (
+                                <span key={key} className="resource-tag">
+                                    {RESOURCE_LABELS[key] || key}: {value}
+                                </span>
+                            ))}
+                    </div>
+
+                    {/* Aether Column */}
+                    <div className="aether-column">
+                        <div className="aether-title">에테르</div>
+                        <div className="aether-bar">
+                            <div
+                                className="aether-fill"
+                                style={{ height: `${Math.min((resources.aether / AETHER_DISPLAY_MAX) * 100, 100)}%` }}
+                            ></div>
+                        </div>
+                        <div className="aether-remaining">
+                            <div>{resources.aether}pt</div>
+                            <div>x{resources.aether}</div>
+                        </div>
+                    </div>
+
+                    {/* Risk Indicator */}
+                    <div className="risk-indicator">위험도 {mapRisk}%</div>
+
+                    {/* Event Modal */}
+                    {activeEvent && (
+                        <div className="event-modal-overlay">
+                            <div className="event-modal">
+                                <h2>{activeEvent.definition.title}</h2>
+                                <p>{activeEvent.definition.description}</p>
+                                <button className="close-btn" onClick={closeEventModal}>
+                                    확인
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // ==================== DUNGEON COMPONENT ====================
+        function DungeonScreen({ gameState, setGameState, onComplete }) {
+            const containerRef = useRef(null);
+            const phaserGameRef = useRef(null);
+
+            useEffect(() => {
+                if (!containerRef.current || phaserGameRef.current) return;
+
+                // Dungeon logic from Dungeon.html
+                function clamp(v, min, max) {
+                    if (v < min) return min;
+                    if (v > max) return max;
+                    return v;
+                }
+
+                function randInt(min, max) {
+                    return Math.floor(Math.random() * (max - min + 1)) + min;
+                }
+
+                function choice(arr) {
+                    return arr[Math.floor(Math.random() * arr.length)];
+                }
+
+                class DungeonCorridorScene extends Phaser.Scene {
+                    constructor() {
+                        super({ key: "DungeonCorridorScene" });
+                    }
+
+                    init(data) {
+                        const seg = (data && data.segmentIndex) || 1;
+                        this.segmentIndex = seg;
+
+                        let maxSeg = this.registry.get("maxSegments");
+                        if (!maxSeg) {
+                            maxSeg = randInt(5, 9);
+                            this.registry.set("maxSegments", maxSeg);
+                        }
+                        this.maxSegments = maxSeg;
+
+                        let stressLike = this.registry.get("stressLike");
+                        if (stressLike === undefined || stressLike === null) {
+                            stressLike = 0;
+                            this.registry.set("stressLike", stressLike);
+                        }
+                        this.stressLike = stressLike;
+
+                        this.initialPlayerX = 200;
+                    }
+
+                    create() {
+                        const width = this.game.config.width;
+                        const height = this.game.config.height;
+                        const floorY = height - 120;
+
+                        const worldWidth = 2200;
+                        this.cameras.main.setBounds(0, 0, worldWidth, height);
+                        this.physics.world.setBounds(0, 0, worldWidth, height);
+
+                        // Background
+                        this.add.rectangle(worldWidth / 2, height / 2, worldWidth, height, 0x050608);
+                        this.add.rectangle(worldWidth / 2, height - 80, worldWidth, 160, 0x181818);
+                        this.add.rectangle(worldWidth / 2, height - 200, worldWidth, 120, 0x111111, 0.5);
+
+                        // Pillars
+                        for (let x = 200; x < worldWidth; x += 320) {
+                            this.add.rectangle(x, floorY - 40, 10, 80, 0x303030);
+                        }
+
+                        // Door to room
+                        this.doorX = 1600;
+                        this.add.rectangle(this.doorX, floorY - 40, 46, 100, 0x444488);
+                        this.add.rectangle(this.doorX, floorY - 100, 86, 26, 0x333344);
+                        this.add.text(this.doorX, floorY - 130, "방으로 들어가는 문", {
+                            fontSize: "12px",
+                            fill: "#ffffff",
+                        }).setOrigin(0.5);
+
+                        // Player
+                        this.player = this.add.rectangle(this.initialPlayerX, height - 140, 28, 64, 0xddddff);
+                        this.physics.add.existing(this.player);
+                        this.player.body.setCollideWorldBounds(true);
+
+                        this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
+
+                        // Input
+                        this.speed = 220;
+                        this.keys = this.input.keyboard.addKeys("W,A,S,D,E");
+
+                        // UI
+                        this.infoText = this.add.text(16, 16,
+                            `통로 ${this.segmentIndex}/${this.maxSegments} | WASD 이동 | E: 문 상호작용`,
+                            { fontSize: "14px", fill: "#ffffff" }
+                        ).setScrollFactor(0);
+
+                        this.interactionText = this.add.text(16, 40, "", {
+                            fontSize: "14px",
+                            fill: "#88ffdd",
+                        }).setScrollFactor(0);
+
+                        this.currentInteractable = null;
+
+                        this.keys.E.on("down", () => {
+                            if (this.currentInteractable && this.currentInteractable.kind === "door") {
+                                this.enterRoom();
+                            }
+                        });
+                    }
+
+                    update() {
+                        const body = this.player.body;
+                        body.setVelocity(0);
+
+                        if (this.keys.A.isDown) {
+                            body.setVelocityX(-this.speed);
+                        } else if (this.keys.D.isDown) {
+                            body.setVelocityX(this.speed);
+                        }
+
+                        if (this.keys.W.isDown) {
+                            body.setVelocityY(-this.speed / 3);
+                        } else if (this.keys.S.isDown) {
+                            body.setVelocityY(this.speed / 3);
+                        }
+
+                        const minY = this.game.config.height - 220;
+                        const maxY = this.game.config.height - 100;
+                        this.player.y = clamp(this.player.y, minY, maxY);
+
+                        const range = 80;
+                        const doorDist = Math.abs(this.player.x - this.doorX);
+
+                        if (doorDist < range) {
+                            this.currentInteractable = { kind: "door", data: null };
+                            this.interactionText.setText("E: 방 안으로 들어간다");
+                        } else {
+                            this.currentInteractable = null;
+                            this.interactionText.setText("");
+                        }
+                    }
+
+                    enterRoom() {
+                        this.scene.start("DungeonRoomScene", { segmentIndex: this.segmentIndex });
+                    }
+                }
+
+                class DungeonRoomScene extends Phaser.Scene {
+                    constructor() {
+                        super({ key: "DungeonRoomScene" });
+                    }
+
+                    init(data) {
+                        this.segmentIndex = (data && data.segmentIndex) || 1;
+                        const maxSeg = this.registry.get("maxSegments") || 7;
+                        this.maxSegments = maxSeg;
+                        this.isLastRoom = this.segmentIndex >= this.maxSegments;
+                    }
+
+                    create() {
+                        const width = this.game.config.width;
+                        const height = this.game.config.height;
+                        const floorY = height - 120;
+
+                        this.add.rectangle(width / 2, height / 2, width, height, 0x070409);
+                        this.add.rectangle(width / 2, height - 80, width, 160, 0x1b1418);
+
+                        this.add.text(width / 2, 40, `구간 ${this.segmentIndex}/${this.maxSegments} - 방`, {
+                            fontSize: "18px",
+                            fill: "#ffffff",
+                        }).setOrigin(0.5);
+
+                        this.exitX = width - 140;
+                        const exitLabel = this.isLastRoom ? "던전 출구" : "다음 통로로";
+                        const exitColor = this.isLastRoom ? 0x77bb77 : 0x448844;
+                        this.add.rectangle(this.exitX, floorY - 40, 40, 90, exitColor);
+                        this.add.text(this.exitX, floorY - 90, exitLabel, {
+                            fontSize: "12px",
+                            fill: "#ffffff",
+                        }).setOrigin(0.5);
+
+                        this.player = this.add.rectangle(width / 2, floorY - 40, 28, 64, 0xddddff);
+                        this.physics.add.existing(this.player);
+                        this.player.body.setCollideWorldBounds(true);
+
+                        this.speed = 200;
+                        this.keys = this.input.keyboard.addKeys("W,A,S,D,E");
+
+                        this.infoText = this.add.text(16, 16,
+                            `방 ${this.segmentIndex}/${this.maxSegments} | WASD 이동 | E: 출구`,
+                            { fontSize: "14px", fill: "#ffffff" }
+                        ).setScrollFactor(0);
+
+                        this.interactionText = this.add.text(16, 40, "", {
+                            fontSize: "14px",
+                            fill: "#88ffdd",
+                        }).setScrollFactor(0);
+
+                        this.currentInteractable = null;
+
+                        this.keys.E.on("down", () => {
+                            if (this.currentInteractable && this.currentInteractable.kind === "exit") {
+                                if (this.isLastRoom) {
+                                    this.finishDungeon();
+                                } else {
+                                    this.goNextCorridor();
+                                }
+                            }
+                        });
+                    }
+
+                    update() {
+                        const body = this.player.body;
+                        body.setVelocity(0);
+
+                        if (this.keys.A.isDown) {
+                            body.setVelocityX(-this.speed);
+                        } else if (this.keys.D.isDown) {
+                            body.setVelocityX(this.speed);
+                        }
+
+                        if (this.keys.W.isDown) {
+                            body.setVelocityY(-this.speed / 3);
+                        } else if (this.keys.S.isDown) {
+                            body.setVelocityY(this.speed / 3);
+                        }
+
+                        const minY = this.game.config.height - 220;
+                        const maxY = this.game.config.height - 100;
+                        this.player.y = clamp(this.player.y, minY, maxY);
+
+                        const range = 80;
+                        const exitDist = Math.abs(this.player.x - this.exitX);
+
+                        if (exitDist < range) {
+                            this.currentInteractable = { kind: "exit", data: null };
+                            const label = this.isLastRoom
+                                ? "E: 던전 출구로 나간다"
+                                : "E: 다음 통로로 나아간다";
+                            this.interactionText.setText(label);
+                        } else {
+                            this.currentInteractable = null;
+                            this.interactionText.setText("");
+                        }
+                    }
+
+                    goNextCorridor() {
+                        this.scene.start("DungeonCorridorScene", { segmentIndex: this.segmentIndex + 1 });
+                    }
+
+                    finishDungeon() {
+                        // Complete dungeon - call parent completion handler
+                        alert("던전 클리어!");
+                        window.dispatchEvent(new CustomEvent('dungeonComplete'));
+                    }
+                }
+
+                const phaserConfig = {
+                    type: Phaser.AUTO,
+                    width: 960,
+                    height: 540,
+                    backgroundColor: "#000000",
+                    physics: {
+                        default: "arcade",
+                        arcade: {
+                            gravity: { y: 0 },
+                            debug: false,
+                        },
+                    },
+                    scene: [DungeonCorridorScene, DungeonRoomScene],
+                    parent: containerRef.current,
+                };
+
+                phaserGameRef.current = new Phaser.Game(phaserConfig);
+
+                // Listen for dungeon complete event
+                const handleDungeonComplete = () => {
+                    onComplete();
+                };
+                window.addEventListener('dungeonComplete', handleDungeonComplete);
+
+                return () => {
+                    window.removeEventListener('dungeonComplete', handleDungeonComplete);
+                    if (phaserGameRef.current) {
+                        phaserGameRef.current.destroy(true);
+                        phaserGameRef.current = null;
+                    }
+                };
+            }, [onComplete]);
+
+            return (
+                <div className="dungeon-container">
+                    <button className="nav-back-btn" onClick={onComplete}>
+                        ← 맵으로 돌아가기
+                    </button>
+                    <div ref={containerRef} style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}></div>
+                </div>
+            );
+        }
+
+        // ==================== BATTLE COMPONENT (Simplified) ====================
+        function BattleScreen({ gameState, setGameState, onComplete, nodeData }) {
+            const [battleLog, setBattleLog] = useState([]);
+            const [playerHp, setPlayerHp] = useState(gameState.characterStats.hp.current);
+            const [enemyHp, setEnemyHp] = useState(nodeData?.isBoss ? 50 : (nodeData?.type === 'elite' ? 30 : 20));
+            const maxEnemyHp = nodeData?.isBoss ? 50 : (nodeData?.type === 'elite' ? 30 : 20);
+
+            const handleAttack = () => {
+                const damage = Math.floor(Math.random() * 10) + 5;
+                const newEnemyHp = Math.max(0, enemyHp - damage);
+                setEnemyHp(newEnemyHp);
+                setBattleLog(prev => [...prev, `플레이어가 ${damage} 데미지를 입혔습니다!`]);
+
+                if (newEnemyHp <= 0) {
+                    alert('전투 승리!');
+                    // Give rewards
+                    setGameState({
+                        ...gameState,
+                        resources: {
+                            ...gameState.resources,
+                            gold: gameState.resources.gold + (nodeData?.isBoss ? 50 : 20),
+                            loot: gameState.resources.loot + 1,
+                        },
+                    });
+                    setTimeout(onComplete, 1000);
+                } else {
+                    // Enemy attack
+                    setTimeout(() => {
+                        const enemyDamage = Math.floor(Math.random() * 8) + 3;
+                        const newPlayerHp = Math.max(0, playerHp - enemyDamage);
+                        setPlayerHp(newPlayerHp);
+                        setBattleLog(prev => [...prev, `적이 ${enemyDamage} 데미지를 입혔습니다!`]);
+
+                        if (newPlayerHp <= 0) {
+                            alert('전투 패배...');
+                            onComplete();
+                        }
+                    }, 500);
+                }
+            };
+
+            const handleDefend = () => {
+                setBattleLog(prev => [...prev, `방어 태세를 취했습니다!`]);
+                setTimeout(() => {
+                    const enemyDamage = Math.floor(Math.random() * 4) + 1;
+                    const newPlayerHp = Math.max(0, playerHp - enemyDamage);
+                    setPlayerHp(newPlayerHp);
+                    setBattleLog(prev => [...prev, `적이 ${enemyDamage} 데미지를 입혔습니다! (방어)`]);
+
+                    if (newPlayerHp <= 0) {
+                        alert('전투 패배...');
+                        onComplete();
+                    }
+                }, 500);
+            };
+
+            return (
+                <div className="w-full min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 p-8">
+                    <button className="nav-back-btn" onClick={onComplete}>
+                        ← 맵으로 돌아가기
+                    </button>
+
+                    <div className="max-w-4xl mx-auto">
+                        <h1 className="text-4xl font-bold text-white text-center mb-8">
+                            ⚔️ 전투 {nodeData?.isBoss ? '(보스)' : nodeData?.type === 'elite' ? '(정예)' : ''}
+                        </h1>
+
+                        {/* Battle Arena */}
+                        <div className="battle-arena mb-8">
+                            <div className="flex justify-between items-center">
+                                {/* Player */}
+                                <div className="text-center">
+                                    <div className="text-6xl mb-4">🧙‍♂️</div>
+                                    <div className="text-cyan-400 font-bold text-2xl mb-2">플레이어</div>
+                                    <div className="hp-bar-enhanced mb-2" style={{ width: '200px' }}>
+                                        <div className="hp-fill" style={{ width: `${(playerHp / gameState.characterStats.hp.max) * 100}%` }}></div>
+                                    </div>
+                                    <div className="text-white font-bold">
+                                        ❤️ {playerHp} / {gameState.characterStats.hp.max}
+                                    </div>
+                                </div>
+
+                                {/* VS */}
+                                <div className="text-6xl text-slate-400">⚔️</div>
+
+                                {/* Enemy */}
+                                <div className="text-center">
+                                    <div className="text-6xl mb-4">
+                                        {nodeData?.isBoss ? '💀' : nodeData?.type === 'elite' ? '👹' : '🐉'}
+                                    </div>
+                                    <div className="text-orange-400 font-bold text-2xl mb-2">
+                                        {nodeData?.isBoss ? '보스' : nodeData?.type === 'elite' ? '정예' : '몬스터'}
+                                    </div>
+                                    <div className="hp-bar-enhanced mb-2" style={{ width: '200px' }}>
+                                        <div className="hp-fill" style={{ width: `${(enemyHp / maxEnemyHp) * 100}%` }}></div>
+                                    </div>
+                                    <div className="text-white font-bold">
+                                        ❤️ {enemyHp} / {maxEnemyHp}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-4 justify-center mb-8">
+                            <button className="btn-enhanced btn-primary" onClick={handleAttack}>
+                                ⚔️ 공격
+                            </button>
+                            <button className="btn-enhanced" onClick={handleDefend}>
+                                🛡️ 방어
+                            </button>
+                        </div>
+
+                        {/* Battle Log */}
+                        <div className="panel-enhanced p-4">
+                            <h3 className="text-white font-bold mb-2">전투 로그</h3>
+                            <div className="bg-slate-900 rounded p-3 h-40 overflow-y-auto">
+                                {battleLog.map((log, i) => (
+                                    <div key={i} className="text-slate-300 text-sm mb-1">{log}</div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ==================== MAIN GAME COMPONENT ====================
+        function Game() {
+            const [currentScreen, setCurrentScreen] = useState('map');
+            const [selectedNode, setSelectedNode] = useState(null);
+            const [gameState, setGameState] = useState(() => {
+                // Initialize game state
+                return {
+                    resources: { ...INITIAL_RESOURCES },
+                    characterStats: { ...INITIAL_CHAR_STATS },
+                    deck: [...INITIAL_DECK],
+                    stressLike: 0,
+                    mapRisk: Math.floor(Math.random() * 61) + 20,
+                    mapState: generateMap(),
+                };
+            });
+
+            // Map generation (from map.html)
+            function generateMap() {
+                const MAP_COLUMNS = 7;
+                const MAP_LAYERS = 7;
+                const MAP_MIN_NODES = 2;
+                const MAP_MAX_NODES = 4;
+                const MAP_WIDTH = 760;
+                const V_SPACING = 140;
+                const LAYER_TOP_OFFSET = 60;
+
+                function randInt(min, max) {
+                    return Math.floor(Math.random() * (max - min + 1)) + min;
+                }
+
+                function shuffle(list) {
+                    for (let i = list.length - 1; i > 0; i -= 1) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [list[i], list[j]] = [list[j], list[i]];
+                    }
+                    return list;
+                }
+
+                function columnToX(column) {
+                    const step = MAP_WIDTH / (MAP_COLUMNS + 1);
+                    return step * (column + 1);
+                }
+
+                function layerToY(layerIdx) {
+                    const displayRow = MAP_LAYERS - 1 - layerIdx;
+                    return displayRow * V_SPACING + LAYER_TOP_OFFSET;
+                }
+
+                function nearestByColumn(nodes, column) {
+                    return nodes.reduce((closest, node) => {
+                        const diff = Math.abs(node.column - column);
+                        if (!closest || diff < closest.diff) {
+                            return { node, diff };
+                        }
+                        return closest;
+                    }, null).node;
+                }
+
+                function generateLayerColumns(layerIdx) {
+                    if (layerIdx === 0 || layerIdx === MAP_LAYERS - 1) {
+                        return [Math.floor(MAP_COLUMNS / 2)];
+                    }
+                    const count = randInt(MAP_MIN_NODES, MAP_MAX_NODES);
+                    const options = shuffle(Array.from({ length: MAP_COLUMNS }, (_, i) => i));
+                    return options.slice(0, count).sort((a, b) => a - b);
+                }
+
+                const layers = [];
+                for (let layer = 0; layer < MAP_LAYERS; layer += 1) {
+                    const columns = generateLayerColumns(layer);
+                    const nodes = columns.map((column, index) => ({
+                        id: `L${layer}-N${index}`,
+                        layer,
+                        column,
+                        x: columnToX(column),
+                        y: layerToY(layer),
+                        type: 'battle',
+                        connections: [],
+                    }));
+                    layers.push(nodes);
+                }
+
+                for (let layer = 0; layer < MAP_LAYERS - 1; layer += 1) {
+                    const current = layers[layer];
+                    const next = layers[layer + 1];
+
+                    current.forEach((node) => {
+                        let targets = next.filter((candidate) => Math.abs(candidate.column - node.column) <= 1);
+                        if (!targets.length) {
+                            targets = [nearestByColumn(next, node.column)];
+                        }
+                        node.connections = targets.map((target) => target.id);
+                    });
+
+                    next.forEach((node) => {
+                        const inbound = current.some((prev) => prev.connections.includes(node.id));
+                        if (!inbound) {
+                            const fallback = nearestByColumn(current, node.column);
+                            fallback.connections.push(node.id);
+                        }
+                    });
+                }
+
+                const flatNodes = layers.flat();
+
+                // Assign node types
+                const startNode = flatNodes.find((n) => n.layer === 0);
+                const bossNode = flatNodes.find((n) => n.layer === MAP_LAYERS - 1);
+                startNode.type = 'event';
+                startNode.isStart = true;
+                bossNode.type = 'boss';
+
+                const candidates = flatNodes.filter((n) => n !== startNode && n !== bossNode);
+                shuffle(candidates);
+
+                const pool = ['battle', 'battle', 'battle', 'rest', 'shop', 'elite', 'dungeon'];
+                candidates.forEach((node) => {
+                    node.type = pool[Math.floor(Math.random() * pool.length)];
+                });
+
+                // Ensure at least one dungeon node
+                const dungeonCandidate = flatNodes.find((n) => n.type === 'dungeon');
+                if (!dungeonCandidate) {
+                    const selectPool = flatNodes.filter((n) => !n.isStart && n.type !== 'boss');
+                    if (selectPool.length) {
+                        const chosen = selectPool[Math.floor(Math.random() * selectPool.length)];
+                        chosen.type = 'dungeon';
+                    }
+                }
+
+                const TYPE_LABELS = {
+                    battle: 'BATTLE',
+                    elite: 'ELITE',
+                    shop: 'SHOP',
+                    event: '?',
+                    rest: 'REST',
+                    boss: 'BOSS',
+                    dungeon: 'DUNGEON',
+                };
+
+                flatNodes.forEach((node) => {
+                    if (node.isStart) {
+                        node.displayLabel = 'Start';
+                    } else if (node.type === 'event') {
+                        node.displayLabel = '?';
+                    } else {
+                        node.displayLabel = TYPE_LABELS[node.type] ?? node.type.toUpperCase();
+                    }
+                    node.cleared = node.layer === 0;
+                    node.selectable = node.layer === 1;
+                });
+
+                return {
+                    nodes: flatNodes,
+                    currentNodeId: startNode.id,
+                };
+            }
+
+            const handleNodeSelect = (screen, node) => {
+                setSelectedNode(node);
+                setCurrentScreen(screen);
+            };
+
+            const handleComplete = () => {
+                // Update character HP after dungeon/battle
+                const updatedStats = { ...gameState.characterStats };
+                if (currentScreen === 'battle') {
+                    // Battle rewards already handled in BattleScreen
+                }
+
+                setGameState({
+                    ...gameState,
+                    characterStats: updatedStats,
+                });
+
+                setCurrentScreen('map');
+                setSelectedNode(null);
+            };
+
+            return (
+                <div>
+                    {currentScreen === 'map' && (
+                        <MapScreen
+                            gameState={gameState}
+                            setGameState={setGameState}
+                            onNodeSelect={handleNodeSelect}
+                        />
+                    )}
+                    {currentScreen === 'dungeon' && (
+                        <DungeonScreen
+                            gameState={gameState}
+                            setGameState={setGameState}
+                            onComplete={handleComplete}
+                        />
+                    )}
+                    {currentScreen === 'battle' && (
+                        <BattleScreen
+                            gameState={gameState}
+                            setGameState={setGameState}
+                            onComplete={handleComplete}
+                            nodeData={selectedNode}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // ==================== RENDER ====================
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Game />);
+    </script>
+</body>
+</html>
