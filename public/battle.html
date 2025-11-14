@@ -914,6 +914,33 @@
           },[]);
 
           useEffect(()=>{
+            const handleMessage = (event) => {
+              const data = event.data;
+              if (!data || typeof data !== 'object') return;
+              console.log('[Battle] Received message:', data);
+
+              if (data.type === 'battleInit' && data.payload) {
+                console.log('[Battle] Full payload:', data.payload);
+                console.log('[Battle] Initializing with aether:', data.payload.player?.etherPts);
+                if (data.payload.player?.etherPts !== undefined) {
+                  const aetherValue = Math.max(0, data.payload.player.etherPts);
+                  console.log('[Battle] Setting player etherPts to:', aetherValue);
+                  setPlayer(p => {
+                    const updated = { ...p, etherPts: aetherValue };
+                    console.log('[Battle] Player state updated:', updated);
+                    return updated;
+                  });
+                } else {
+                  console.warn('[Battle] etherPts is undefined in payload!');
+                }
+                window.parent.postMessage({ type: 'battleReady' }, '*');
+              }
+            };
+            window.addEventListener('message', handleMessage);
+            return () => window.removeEventListener('message', handleMessage);
+          }, []);
+
+          useEffect(()=>{
             if(!enemy || phase!=='select') return;
             setFixedOrder(null);
             setActionEvents({});
@@ -1029,6 +1056,7 @@
             }
           }, [selected, phase, enemyPlan.actions]);
 
+
           const beginResolveFromRespond = ()=>{
             if(!fixedOrder) return addLog('오류: 고정된 순서가 없습니다');
 
@@ -1039,14 +1067,25 @@
 
             const pComboNow = detectPokerCombo(selected);
             const eComboNow = detectPokerCombo(enemyPlan.actions);
+            console.log('[Battle] Player combo:', pComboNow?.name, 'Enemy combo:', eComboNow?.name);
             if(pComboNow && ETHER_GAIN_MAP[pComboNow.name]){
               const gain = ETHER_GAIN_MAP[pComboNow.name];
-              setPlayer(p=>({ ...p, etherPts: addEther(p.etherPts, gain) }));
+              console.log('[Battle] Player gaining ether:', gain, 'from combo:', pComboNow.name);
+              setPlayer(p=>{
+                const newEther = addEther(p.etherPts, gain);
+                console.log('[Battle] Player ether updated:', p.etherPts, '->', newEther);
+                return { ...p, etherPts: newEther };
+              });
               addLog(`✴️ 에테르 +${gain} (플레이어 족보: ${pComboNow.name})`);
             }
             if(eComboNow && ETHER_GAIN_MAP[eComboNow.name]){
               const gainE = ETHER_GAIN_MAP[eComboNow.name];
-              setEnemy(e=>({ ...e, etherPts: addEther(e.etherPts, gainE) }));
+              console.log('[Battle] Enemy gaining ether:', gainE, 'from combo:', eComboNow.name);
+              setEnemy(e=>{
+                const newEther = addEther(e.etherPts, gainE);
+                console.log('[Battle] Enemy ether updated:', e.etherPts, '->', newEther);
+                return { ...e, etherPts: newEther };
+              });
               addLog(`☄️ 적 에테르 +${gainE} (적 족보: ${eComboNow.name})`);
             }
 
@@ -1208,7 +1247,9 @@
               const e = ENEMIES[next];
               setEnemy({ ...e, hp:e.hp, maxHp:e.hp, vulnMult:1, vulnTurns:0, block:0, counter:0, etherPts:0, etherOverdriveActive:false });
               setEnemyIndex(next); setSelected([]); setHand(CARDS.slice(0,8)); setEnemyPlan({ actions:[], mode: null }); setFixedOrder(null); setQueue([]); setQIndex(0); setCanRedraw(true); setPostCombatOptions(null); addLog(`➡️ 다음 몬스터 등장: ${e.name} (손패 리셋)`); setPhase('select');
-            } else { addLog('🏆 모든 적 처치 - 게임 끝'); }
+            } else {
+              addLog('🏆 모든 적 처치 - 게임 끝');
+            }
           };
 
           const removeSelectedAt = (i)=> setSelected(selected.filter((_,idx)=>idx!==i));
@@ -1350,7 +1391,7 @@
                         <div className="flex flex-col items-center">
                           <div className="text-cyan-400 font-black text-sm mb-2">에테르</div>
                           <div className="ether-bar-vertical player">
-                            <div className="ether-fill-vertical player" style={{height: `${Math.min((player.etherPts / 800) * 100, 100)}%`}}></div>
+                            <div className="ether-fill-vertical player" style={{height: `${Math.min(((player.etherPts % 100) / 100) * 100, 100)}%`}}></div>
                           </div>
                           <div className="text-cyan-400 font-bold text-xs mt-2">{player.etherPts}pt</div>
                           <div className="text-cyan-300 text-xs">×{etherSlots(player.etherPts)}</div>
@@ -1439,7 +1480,7 @@
                         <div className="flex flex-col items-center">
                           <div className="text-fuchsia-400 font-black text-sm mb-2">에테르</div>
                           <div className="ether-bar-vertical enemy">
-                            <div className="ether-fill-vertical enemy" style={{height: `${Math.min((enemy.etherPts / 800) * 100, 100)}%`}}></div>
+                            <div className="ether-fill-vertical enemy" style={{height: `${Math.min(((enemy.etherPts % 100) / 100) * 100, 100)}%`}}></div>
                           </div>
                           <div className="text-fuchsia-400 font-bold text-xs mt-2">{enemy.etherPts}pt</div>
                           <div className="text-fuchsia-300 text-xs">×{etherSlots(enemy.etherPts)}</div>
@@ -1466,14 +1507,25 @@
                         </button>
                       )}
                       {enemy && enemy.hp <= 0 && (
-                        <button onClick={nextEnemy} disabled={enemyIndex >= ENEMIES.length - 1} className="btn-enhanced flex items-center gap-2">
-                          ➡️ 다음 적
+                        <button onClick={()=>{
+                          console.log('[Battle] Return to map button clicked, sending victory with aether:', player.etherPts);
+                          window.parent.postMessage({ type: 'battleResult', result: 'victory', etherPts: Math.max(0, player.etherPts) }, '*');
+                        }} className="btn-enhanced btn-primary flex items-center gap-2">
+                          🏆 맵으로 돌아가기
                         </button>
                       )}
                       {player && player.hp <= 0 && (
-                        <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
-                          🔄 재시작
-                        </button>
+                        <>
+                          <button onClick={()=>{
+                            console.log('[Battle] Return to map button clicked (defeat), sending defeat with aether:', player.etherPts);
+                            window.parent.postMessage({ type: 'battleResult', result: 'defeat', etherPts: Math.max(0, player.etherPts) }, '*');
+                          }} className="btn-enhanced btn-primary flex items-center gap-2">
+                            💀 맵으로 돌아가기
+                          </button>
+                          <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
+                            🔄 재시작
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1527,8 +1579,11 @@
                         <Play size={20}/> 진행 시작
                       </button>
                       {enemy && enemy.hp <= 0 && (
-                        <button onClick={nextEnemy} disabled={enemyIndex >= ENEMIES.length - 1} className="btn-enhanced flex items-center gap-2">
-                          ➡️ 다음 적
+                        <button onClick={()=>{
+                          console.log('[Battle] Return to map button clicked, sending victory with aether:', player.etherPts);
+                          window.parent.postMessage({ type: 'battleResult', result: 'victory', etherPts: Math.max(0, player.etherPts) }, '*');
+                        }} className="btn-enhanced btn-primary flex items-center gap-2">
+                          🏆 맵으로 돌아가기
                         </button>
                       )}
                     </div>
@@ -1617,14 +1672,25 @@
                         </>
                       )}
                       {enemy && enemy.hp <= 0 && (
-                        <button onClick={nextEnemy} disabled={enemyIndex >= ENEMIES.length - 1} className="btn-enhanced flex items-center gap-2">
-                          ➡️ 다음 적
+                        <button onClick={()=>{
+                          console.log('[Battle] Return to map button clicked, sending victory with aether:', player.etherPts);
+                          window.parent.postMessage({ type: 'battleResult', result: 'victory', etherPts: Math.max(0, player.etherPts) }, '*');
+                        }} className="btn-enhanced btn-primary flex items-center gap-2">
+                          🏆 맵으로 돌아가기
                         </button>
                       )}
                       {player && player.hp <= 0 && (
-                        <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
-                          🔄 재시작
-                        </button>
+                        <>
+                          <button onClick={()=>{
+                            console.log('[Battle] Return to map button clicked (defeat), sending defeat with aether:', player.etherPts);
+                            window.parent.postMessage({ type: 'battleResult', result: 'defeat', etherPts: Math.max(0, player.etherPts) }, '*');
+                          }} className="btn-enhanced btn-primary flex items-center gap-2">
+                            💀 맵으로 돌아가기
+                          </button>
+                          <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
+                            🔄 재시작
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

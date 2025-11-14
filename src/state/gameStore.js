@@ -308,9 +308,23 @@ export const useGameStore = create((set, get) => ({
       const autoResult = pickOutcome(state.activeBattle.simulation, "victory");
     const resultLabel = outcome.result ?? autoResult;
     const rewards = resultLabel === "victory" ? grantRewards(rewardsDef, state.resources) : { next: state.resources, applied: {} };
+
+    console.log('[gameStore] resolveBattle called with outcome:', outcome);
+    console.log('[gameStore] Current resources.aether:', state.resources.aether);
+    console.log('[gameStore] Received etherPts from battle:', outcome.etherPts);
+
+    // Update aether from battle
+    const updatedResources = { ...rewards.next };
+    if (outcome.etherPts !== undefined) {
+      updatedResources.aether = Math.max(0, outcome.etherPts);
+      console.log('[gameStore] Updated aether to:', updatedResources.aether);
+    } else {
+      console.warn('[gameStore] No etherPts in outcome, keeping current aether');
+    }
+
     return {
       ...state,
-      resources: rewards.next,
+      resources: updatedResources,
       activeBattle: null,
       lastBattleResult: {
         nodeId: state.activeBattle.nodeId,
@@ -431,4 +445,11 @@ export const selectors = {
   lastBattleResult: (state) => state.lastBattleResult,
 };
 
+// HMR을 통한 개발 중 코드 변경 시 store 재초기화
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    console.log('[gameStore] HMR detected - resetting game state');
+    useGameStore.getState().resetRun();
+  });
+}
 

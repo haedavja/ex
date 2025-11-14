@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameStore } from "../../state/gameStore";
 
 const NODE_WIDTH = 96;
@@ -116,13 +116,29 @@ export function MapDemo() {
   const skipDungeon = useGameStore((state) => state.skipDungeon);
   const revealDungeonInfo = useGameStore((state) => state.revealDungeonInfo);
   const clearBattleResult = useGameStore((state) => state.clearBattleResult);
+  const resetRun = useGameStore((state) => state.resetRun);
+
+  const [battleResultCountdown, setBattleResultCountdown] = useState(3);
+
+  // 첫 로드 시 한 번만 강제 리셋 (이전 세션 데이터 제거)
+  useEffect(() => {
+    const hasReset = sessionStorage.getItem('gameReset');
+    if (!hasReset) {
+      console.log('[MapDemo] First load - forcing game reset');
+      sessionStorage.setItem('gameReset', 'true');
+      resetRun();
+    }
+  }, []);
 
   const nodes = map?.nodes ?? [];
   const mapViewRef = useRef(null);
   const riskDisplay = Number.isFinite(mapRisk) ? mapRisk.toFixed(1) : "-";
   const aetherValue = resources.aether ?? 0;
   const aetherRatio = Math.max(0, Math.min(1, aetherValue / 10));
-  const aetherTier = aetherValue >= 5 ? "x5" : aetherValue >= 3 ? "x3" : aetherValue > 0 ? "x1" : "x0";
+  const aetherSlots = Math.floor(aetherValue / 100);
+  const aetherTier = `x${aetherSlots}`;
+
+  console.log('[MapDemo] Rendering with aether:', aetherValue, 'slots:', aetherSlots, 'tier:', aetherTier);
 
   const mapHeight = useMemo(() => {
     if (!nodes.length) return 800;
@@ -166,6 +182,28 @@ export function MapDemo() {
     });
   }, [map?.currentNodeId, nodes]);
 
+  useEffect(() => {
+    if (!lastBattleResult) {
+      setBattleResultCountdown(3);
+      return;
+    }
+
+    setBattleResultCountdown(3);
+
+    const countdownInterval = setInterval(() => {
+      setBattleResultCountdown((prev) => prev > 0 ? prev - 1 : 0);
+    }, 1000);
+
+    const closeTimer = setTimeout(() => {
+      clearBattleResult();
+    }, 3000);
+
+    return () => {
+      clearInterval(countdownInterval);
+      clearTimeout(closeTimer);
+    };
+  }, [lastBattleResult]);
+
   const availablePrayers = useMemo(
     () => PRAYER_COSTS.filter((cost) => (resources.aether ?? 0) >= cost),
     [resources.aether],
@@ -189,6 +227,9 @@ export function MapDemo() {
       <header>
         <h1>로그라이크 경로 지도</h1>
         <small>속도 시스템 기준 · React + Vite 시연</small>
+        <button onClick={resetRun} style={{marginLeft: '20px', padding: '8px 16px', cursor: 'pointer'}}>
+          🔄 새 게임
+        </button>
       </header>
 
       <div className="legend">
@@ -395,6 +436,9 @@ export function MapDemo() {
                </ul>
              </div>
            ) : null}
+            <p style={{ fontSize: "14px", color: "#888", marginTop: "12px" }}>
+              {battleResultCountdown}초 후 자동으로 닫힙니다
+            </p>
             <button type="button" className="close-btn" onClick={clearBattleResult}>
               확인
             </button>

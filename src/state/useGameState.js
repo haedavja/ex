@@ -126,7 +126,7 @@ const generateMap = () => {
 export const createInitialState = () => ({
   map: generateMap(),
   mapRisk: Math.floor(Math.random() * 61) + 20,
-  resources: { gold: 40, intel: 2, loot: 1, material: 1, aether: 1 },
+  resources: { gold: 40, intel: 2, loot: 1, material: 1, aether: 100 },
   activeEvent: null,
   activeDungeon: null,
   activeBattle: null,

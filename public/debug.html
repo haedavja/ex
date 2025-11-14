@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>디버그 정보</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+    pre { background: #000; padding: 10px; border: 1px solid #0f0; }
+    button { padding: 10px 20px; margin: 10px 0; cursor: pointer; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>🔍 디버그 정보</h1>
+  <button onclick="checkState()">현재 상태 확인</button>
+  <button onclick="clearAll()">모든 캐시 삭제</button>
+  <button onclick="location.reload(true)">강제 리로드</button>
+  <pre id="output">버튼을 클릭하세요...</pre>
+
+  <script type="module">
+    window.checkState = async () => {
+      const output = document.getElementById('output');
+      let info = '=== 디버그 정보 ===\n\n';
+      
+      try {
+        // 초기 상태 확인
+        const { createInitialState } = await import('/src/state/useGameState.js');
+        const initialState = createInitialState();
+        info += '초기 에테르 값: ' + initialState.resources.aether + '\n';
+        info += '초기 상태: ' + JSON.stringify(initialState.resources, null, 2) + '\n\n';
+        
+        // 게임 스토어 확인
+        const { useGameStore } = await import('/src/state/gameStore.js');
+        const state = useGameStore.getState();
+        info += '현재 에테르 값: ' + state.resources.aether + '\n';
+        info += '현재 리소스: ' + JSON.stringify(state.resources, null, 2) + '\n\n';
+        
+        // 캐시 확인
+        info += '=== 캐시 상태 ===\n';
+        info += 'localStorage 항목: ' + localStorage.length + '\n';
+        info += 'sessionStorage 항목: ' + sessionStorage.length + '\n';
+        
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          info += 'Cache API: ' + cacheNames.length + ' caches\n';
+          info += 'Cache names: ' + JSON.stringify(cacheNames, null, 2) + '\n';
+        }
+        
+      } catch (error) {
+        info += '\n❌ 오류: ' + error.message + '\n';
+        info += error.stack;
+      }
+      
+      output.textContent = info;
+    };
+    
+    window.clearAll = () => {
+      localStorage.clear();
+      sessionStorage.clear();
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => caches.delete(name));
+          alert('모든 캐시 삭제됨! 페이지를 리로드합니다.');
+          location.href = '/';
+        });
+      } else {
+        alert('모든 스토리지 삭제됨! 페이지를 리로드합니다.');
+        location.href = '/';
+      }
+    };
+  </script>
+</body>
+</html>
