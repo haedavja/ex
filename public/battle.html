@@ -1372,7 +1372,7 @@
                         <div className="flex flex-col items-center">
                           <div className="text-cyan-400 font-black text-sm mb-2">에테르</div>
                           <div className="ether-bar-vertical player">
-                            <div className="ether-fill-vertical player" style={{height: `${Math.min((player.etherPts / 800) * 100, 100)}%`}}></div>
+                            <div className="ether-fill-vertical player" style={{height: `${Math.min((player.etherPts / 200) * 100, 100)}%`}}></div>
                           </div>
                           <div className="text-cyan-400 font-bold text-xs mt-2">{player.etherPts}pt</div>
                           <div className="text-cyan-300 text-xs">×{etherSlots(player.etherPts)}</div>
@@ -1461,7 +1461,7 @@
                         <div className="flex flex-col items-center">
                           <div className="text-fuchsia-400 font-black text-sm mb-2">에테르</div>
                           <div className="ether-bar-vertical enemy">
-                            <div className="ether-fill-vertical enemy" style={{height: `${Math.min((enemy.etherPts / 800) * 100, 100)}%`}}></div>
+                            <div className="ether-fill-vertical enemy" style={{height: `${Math.min((enemy.etherPts / 200) * 100, 100)}%`}}></div>
                           </div>
                           <div className="text-fuchsia-400 font-bold text-xs mt-2">{enemy.etherPts}pt</div>
                           <div className="text-fuchsia-300 text-xs">×{etherSlots(enemy.etherPts)}</div>
