@@ -46,6 +46,7 @@ export function LegacyBattleScreen() {
     if (!payload) return;
     const target = iframeRef.current?.contentWindow;
     if (!target) return;
+    console.log("[LegacyBattleScreen] Sending payload to battle:", payload);
     target.postMessage({ type: "battleInit", payload }, "*");
   };
 
