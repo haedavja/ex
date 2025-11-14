@@ -1068,14 +1068,25 @@
 
             const pComboNow = detectPokerCombo(selected);
             const eComboNow = detectPokerCombo(enemyPlan.actions);
+            console.log('[Battle] Player combo:', pComboNow?.name, 'Enemy combo:', eComboNow?.name);
             if(pComboNow && ETHER_GAIN_MAP[pComboNow.name]){
               const gain = ETHER_GAIN_MAP[pComboNow.name];
-              setPlayer(p=>({ ...p, etherPts: addEther(p.etherPts, gain) }));
+              console.log('[Battle] Player gaining ether:', gain, 'from combo:', pComboNow.name);
+              setPlayer(p=>{
+                const newEther = addEther(p.etherPts, gain);
+                console.log('[Battle] Player ether updated:', p.etherPts, '->', newEther);
+                return { ...p, etherPts: newEther };
+              });
               addLog(`✴️ 에테르 +${gain} (플레이어 족보: ${pComboNow.name})`);
             }
             if(eComboNow && ETHER_GAIN_MAP[eComboNow.name]){
               const gainE = ETHER_GAIN_MAP[eComboNow.name];
-              setEnemy(e=>({ ...e, etherPts: addEther(e.etherPts, gainE) }));
+              console.log('[Battle] Enemy gaining ether:', gainE, 'from combo:', eComboNow.name);
+              setEnemy(e=>{
+                const newEther = addEther(e.etherPts, gainE);
+                console.log('[Battle] Enemy ether updated:', e.etherPts, '->', newEther);
+                return { ...e, etherPts: newEther };
+              });
               addLog(`☄️ 적 에테르 +${gainE} (적 족보: ${eComboNow.name})`);
             }
 

@@ -309,10 +309,17 @@ export const useGameStore = create((set, get) => ({
     const resultLabel = outcome.result ?? autoResult;
     const rewards = resultLabel === "victory" ? grantRewards(rewardsDef, state.resources) : { next: state.resources, applied: {} };
 
+    console.log('[gameStore] resolveBattle called with outcome:', outcome);
+    console.log('[gameStore] Current resources.aether:', state.resources.aether);
+    console.log('[gameStore] Received etherPts from battle:', outcome.etherPts);
+
     // Update aether from battle
     const updatedResources = { ...rewards.next };
     if (outcome.etherPts !== undefined) {
       updatedResources.aether = Math.max(0, outcome.etherPts);
+      console.log('[gameStore] Updated aether to:', updatedResources.aether);
+    } else {
+      console.warn('[gameStore] No etherPts in outcome, keeping current aether');
     }
 
     return {
