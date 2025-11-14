@@ -27,6 +27,7 @@ export function LegacyBattleScreen() {
     if (!activeBattle) return null;
     const initialPlayer = activeBattle.simulation?.initialState?.player;
     const initialEnemy = activeBattle.simulation?.initialState?.enemy;
+    console.log("[LegacyBattleScreen] Creating payload - resources.aether:", resources.aether);
     return {
       player: {
         hp: initialPlayer?.hp ?? 30,
@@ -43,10 +44,17 @@ export function LegacyBattleScreen() {
   const frameKey = activeBattle ? `${activeBattle.nodeId}-${activeBattle.kind}` : "idle";
 
   const postInit = () => {
-    if (!payload) return;
+    if (!payload) {
+      console.warn("[LegacyBattleScreen] postInit called but payload is null");
+      return;
+    }
     const target = iframeRef.current?.contentWindow;
-    if (!target) return;
+    if (!target) {
+      console.warn("[LegacyBattleScreen] postInit called but iframe contentWindow is null");
+      return;
+    }
     console.log("[LegacyBattleScreen] Sending payload to battle:", payload);
+    console.log("[LegacyBattleScreen] Aether value being sent:", payload.player?.etherPts);
     target.postMessage({ type: "battleInit", payload }, "*");
   };
 
