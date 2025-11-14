@@ -445,4 +445,11 @@ export const selectors = {
   lastBattleResult: (state) => state.lastBattleResult,
 };
 
+// HMR을 통한 개발 중 코드 변경 시 store 재초기화
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    console.log('[gameStore] HMR detected - resetting game state');
+    useGameStore.getState().resetRun();
+  });
+}
 
