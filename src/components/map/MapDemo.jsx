@@ -120,6 +120,16 @@ export function MapDemo() {
 
   const [battleResultCountdown, setBattleResultCountdown] = useState(3);
 
+  // 첫 로드 시 한 번만 강제 리셋 (이전 세션 데이터 제거)
+  useEffect(() => {
+    const hasReset = sessionStorage.getItem('gameReset');
+    if (!hasReset) {
+      console.log('[MapDemo] First load - forcing game reset');
+      sessionStorage.setItem('gameReset', 'true');
+      resetRun();
+    }
+  }, []);
+
   const nodes = map?.nodes ?? [];
   const mapViewRef = useRef(null);
   const riskDisplay = Number.isFinite(mapRisk) ? mapRisk.toFixed(1) : "-";
