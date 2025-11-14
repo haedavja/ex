@@ -128,6 +128,8 @@ export function MapDemo() {
   const aetherSlots = Math.floor(aetherValue / 100);
   const aetherTier = `x${aetherSlots}`;
 
+  console.log('[MapDemo] Rendering with aether:', aetherValue, 'slots:', aetherSlots, 'tier:', aetherTier);
+
   const mapHeight = useMemo(() => {
     if (!nodes.length) return 800;
     const maxY = Math.max(...nodes.map((node) => node.y), 0);
