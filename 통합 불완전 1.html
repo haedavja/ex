@@ -1,0 +1,2721 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>완전 통합 게임 - 맵/던전/전투</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0a0a0a;
+            overflow: hidden;
+        }
+        #root {
+            width: 100vw;
+            height: 100vh;
+        }
+        .game-view {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .game-view.hidden {
+            display: none;
+        }
+
+        /* Battle System Styles */
+        .card-enhanced {
+            background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+            border: 3px solid #444;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-enhanced::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(145deg, transparent 0%, rgba(255,255,255,0.05) 100%);
+            pointer-events: none;
+        }
+
+        .card-enhanced:hover:not(.disabled) {
+            transform: translateY(-5px) scale(1.02);
+            border-color: #fbbf24;
+            box-shadow: 0 10px 30px rgba(251, 191, 36, 0.3);
+        }
+
+        .card-enhanced.selected {
+            border-color: #3b82f6;
+            background: linear-gradient(145deg, #1e3a8a 0%, #1e40af 100%);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .card-enhanced.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .attack-card {
+            border-color: #ef4444 !important;
+            background: linear-gradient(145deg, #7f1d1d 0%, #991b1b 100%) !important;
+        }
+
+        .attack-card:hover:not(.disabled) {
+            border-color: #f87171 !important;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4) !important;
+        }
+
+        .defense-card {
+            border-color: #3b82f6 !important;
+            background: linear-gradient(145deg, #1e3a8a 0%, #1e40af 100%) !important;
+        }
+
+        .defense-card:hover:not(.disabled) {
+            border-color: #60a5fa !important;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4) !important;
+        }
+
+        .btn-enhanced {
+            background: linear-gradient(145deg, #1e40af, #1e3a8a);
+            border: 2px solid #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-enhanced:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .btn-enhanced:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(145deg, #f59e0b, #d97706);
+            border-color: #fbbf24;
+        }
+
+        .btn-success {
+            background: linear-gradient(145deg, #059669, #047857);
+            border-color: #10b981;
+        }
+
+        .cost-badge {
+            background: radial-gradient(circle, #fbbf24, #f59e0b);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 14px;
+            color: #000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+
+        .hp-bar-enhanced {
+            position: relative;
+            height: 20px;
+            background: linear-gradient(to right, #450a0a, #7f1d1d);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #450a0a;
+        }
+
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .hp-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.3), transparent);
+        }
+
+        .combo-badge {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 900;
+            font-size: 11px;
+            color: #000;
+            box-shadow: 0 2px 8px rgba(251, 191, 36, 0.5);
+            display: inline-block;
+        }
+
+        .panel-enhanced {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 2px solid #334155;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-card-large {
+            position: relative;
+            width: 140px;
+            height: 200px;
+            border-radius: 16px;
+            border: 4px solid;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .game-card-large.attack {
+            border-color: #ff6b6b;
+            background: linear-gradient(180deg, #8B0000 0%, #4a0000 100%);
+        }
+
+        .game-card-large.defense {
+            border-color: #4dabf7;
+            background: linear-gradient(180deg, #1e40af 0%, #0c1e4a 100%);
+        }
+
+        .game-card-large:hover:not(.disabled) {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+
+        .game-card-large.selected {
+            transform: translateY(-20px);
+            box-shadow: 0 20px 50px rgba(251, 191, 36, 0.8);
+            border-color: #fbbf24;
+        }
+
+        .game-card-large.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .card-header {
+            padding: 8px;
+            text-align: center;
+            position: relative;
+        }
+
+        .card-cost-corner {
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle, #fbbf24, #f59e0b);
+            border-radius: 50%;
+            border: 3px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 20px;
+            color: #000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+            z-index: 2;
+        }
+
+        .card-icon-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+        }
+
+        .card-footer {
+            background: rgba(0,0,0,0.5);
+            padding: 8px;
+            text-align: center;
+            border-top: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .energy-orb-large {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #fef08a, #fbbf24, #f59e0b, #d97706);
+            box-shadow: 0 0 30px rgba(251, 191, 36, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 32px;
+            color: #000;
+            text-shadow: 0 2px 4px rgba(255,255,255,0.5);
+            border: 4px solid rgba(255,255,255,0.3);
+        }
+
+        .battle-arena {
+            position: relative;
+            min-height: 500px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%);
+            border-radius: 20px;
+            border: 3px solid #475569;
+            padding: 32px 48px !important;
+        }
+
+        .hand-area {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.95) 20%, rgba(0,0,0,0.98) 100%);
+            padding: 20px;
+            border-top: 3px solid #475569;
+            z-index: 100;
+        }
+
+        .hand-cards {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            max-width: 1400px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+
+        .character-display {
+            font-size: 80px;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8));
+        }
+
+        .ether-bar-vertical {
+            width: 50px;
+            height: 300px;
+            background: linear-gradient(to top, #0c4a6e, #075985);
+            border-radius: 25px;
+            border: 3px solid;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .ether-bar-vertical.player {
+            border-color: #22d3ee;
+        }
+
+        .ether-bar-vertical.enemy {
+            border-color: #e879f9;
+        }
+
+        .ether-fill-vertical {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            transition: height 0.5s ease;
+        }
+
+        .ether-fill-vertical.player {
+            background: linear-gradient(to top, #06b6d4, #22d3ee, #67e8f9);
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.6);
+        }
+
+        .ether-fill-vertical.enemy {
+            background: linear-gradient(to top, #c026d3, #e879f9, #f0abfc);
+            box-shadow: 0 0 20px rgba(232, 121, 249, 0.6);
+        }
+
+        .selection-number {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 52px;
+            height: 52px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 28px;
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.8);
+            z-index: 3;
+        }
+
+        .combo-display {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-weight: 900;
+            font-size: 20px;
+            color: #000;
+            box-shadow: 0 4px 16px rgba(251, 191, 36, 0.8);
+            border: 3px solid #fff;
+            animation: pulse-glow 2s infinite;
+            margin-top: -8px;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 4px 16px rgba(251, 191, 36, 0.8); }
+            50% { box-shadow: 0 8px 32px rgba(251, 191, 36, 1); }
+        }
+
+        .submitted-cards-area {
+            background: linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.98) 100%);
+            border-top: 3px solid #fbbf24;
+            padding: 20px;
+        }
+
+        .card-move-btn {
+            background: rgba(59, 130, 246, 0.8);
+            border: 2px solid #3b82f6;
+            color: white;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .card-move-btn:hover:not(:disabled) {
+            background: rgba(59, 130, 246, 1);
+            transform: scale(1.1);
+        }
+
+        .card-move-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        @keyframes card-use-effect {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3) rotate(5deg); opacity: 0.8; }
+            100% { transform: scale(0.5) translateY(-50px); opacity: 0; }
+        }
+
+        .card-used {
+            animation: card-use-effect 0.8s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // ====================================
+        // GLOBAL GAME STATE MANAGER
+        // ====================================
+        class GameStateManager {
+            static currentMode = 'map';
+            static mapState = null;
+            static dungeonContext = null;
+            static dungeonPlayerPosition = null; // ! 만난 위치 저장
+            static battleContext = null;
+            static playerResources = { gold: 40, intel: 2, loot: 1, material: 1, aether: 5 };
+            static listeners = [];
+            static phaserGameInstance = null; // Phaser 게임 인스턴스 저장
+
+            static setMode(mode) {
+                this.currentMode = mode;
+                this.notifyListeners();
+            }
+
+            static getMode() {
+                return this.currentMode;
+            }
+
+            static addListener(callback) {
+                this.listeners.push(callback);
+            }
+
+            static removeListener(callback) {
+                this.listeners = this.listeners.filter(l => l !== callback);
+            }
+
+            static notifyListeners() {
+                this.listeners.forEach(callback => callback(this.currentMode));
+            }
+
+            static saveDungeonPosition(x, y, sceneKey) {
+                this.dungeonPlayerPosition = { x, y, sceneKey };
+            }
+
+            static triggerBattle(context) {
+                this.battleContext = context;
+                this.setMode('battle');
+            }
+
+            static exitBattle(victory, returnTo = 'map') {
+                if (victory && returnTo === 'dungeon') {
+                    this.setMode('dungeon');
+                    // Phaser 씬 재개 및 위치 복원
+                    if (this.phaserGameInstance && this.dungeonPlayerPosition) {
+                        const scene = this.phaserGameInstance.scene.getScene(this.dungeonPlayerPosition.sceneKey);
+                        if (scene && scene.player) {
+                            // 플레이어 위치 복원
+                            scene.player.x = this.dungeonPlayerPosition.x;
+                            scene.player.y = this.dungeonPlayerPosition.y;
+                            scene.scene.resume();
+                        }
+                    }
+                } else {
+                    this.setMode('map');
+                }
+                this.battleContext = null;
+            }
+
+            static enterDungeon(nodeData) {
+                this.dungeonContext = { nodeData, returnToMap: true };
+                this.dungeonPlayerPosition = null;
+                this.setMode('dungeon');
+            }
+
+            static exitDungeon() {
+                this.dungeonContext = null;
+                this.dungeonPlayerPosition = null;
+                this.setMode('map');
+            }
+
+            static resumeDungeon() {
+                this.setMode('dungeon');
+            }
+        }
+
+        window.GameStateManager = GameStateManager;
+
+        // ====================================
+        // GLOBAL CHARACTER MODAL (맵/전투 모드용)
+        // ====================================
+        function GlobalCharacterModal({ onClose }) {
+            const [selectedCards, setSelectedCards] = useState([]);
+
+            // 예시 카드 덱
+            const allCards = [
+                { id: 1, type: 'attack', value: 7, suit: '♠' },
+                { id: 2, type: 'attack', value: 9, suit: '♥' },
+                { id: 3, type: 'defense', value: 3, suit: '♣' },
+                { id: 4, type: 'attack', value: 11, suit: '♦' },
+                { id: 5, type: 'defense', value: 5, suit: '♠' },
+                { id: 6, type: 'attack', value: 2, suit: '♥' },
+            ];
+
+            const toggleCard = (cardId) => {
+                setSelectedCards(prev => {
+                    if (prev.includes(cardId)) {
+                        return prev.filter(id => id !== cardId);
+                    } else if (prev.length < 5) {
+                        return [...prev, cardId];
+                    }
+                    return prev;
+                });
+            };
+
+            const handleConfirm = () => {
+                console.log('Selected cards:', selectedCards);
+                onClose();
+            };
+
+            return (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.85)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999
+                }}>
+                    <div style={{
+                        backgroundColor: '#1a1f35',
+                        borderRadius: '16px',
+                        padding: '32px',
+                        maxWidth: '900px',
+                        width: '90%',
+                        border: '2px solid #495c8f'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '24px'
+                        }}>
+                            <h2 style={{ color: '#f4f6ff', fontSize: '24px', margin: 0 }}>캐릭터 카드 선택</h2>
+                            <button
+                                onClick={onClose}
+                                style={{
+                                    backgroundColor: 'transparent',
+                                    border: '2px solid #495c8f',
+                                    color: '#f4f6ff',
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                닫기 (C)
+                            </button>
+                        </div>
+
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                            gap: '16px',
+                            marginBottom: '24px'
+                        }}>
+                            {allCards.map(card => (
+                                <div
+                                    key={card.id}
+                                    onClick={() => toggleCard(card.id)}
+                                    style={{
+                                        backgroundColor: selectedCards.includes(card.id) ? '#364874' : '#151b2c',
+                                        border: selectedCards.includes(card.id) ? '3px solid #68c9ff' : '2px solid #495c8f',
+                                        borderRadius: '12px',
+                                        padding: '16px',
+                                        cursor: 'pointer',
+                                        textAlign: 'center',
+                                        position: 'relative',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    {selectedCards.includes(card.id) && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '-8px',
+                                            right: '-8px',
+                                            backgroundColor: '#68c9ff',
+                                            color: '#0a0e1a',
+                                            borderRadius: '50%',
+                                            width: '24px',
+                                            height: '24px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '12px',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {selectedCards.indexOf(card.id) + 1}
+                                        </div>
+                                    )}
+                                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>
+                                        {card.suit}
+                                    </div>
+                                    <div style={{ color: '#f4f6ff', fontSize: '18px', fontWeight: 'bold' }}>
+                                        {card.value}
+                                    </div>
+                                    <div style={{
+                                        color: card.type === 'attack' ? '#ff6b6b' : '#51cf66',
+                                        fontSize: '12px',
+                                        marginTop: '4px'
+                                    }}>
+                                        {card.type === 'attack' ? '공격' : '방어'}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                                color: '#a0a8c0',
+                                fontSize: '14px',
+                                marginBottom: '16px'
+                            }}>
+                                선택: {selectedCards.length} / 5
+                            </div>
+                            <button
+                                onClick={handleConfirm}
+                                disabled={selectedCards.length === 0}
+                                style={{
+                                    backgroundColor: selectedCards.length > 0 ? '#68c9ff' : '#495c8f',
+                                    border: 'none',
+                                    color: selectedCards.length > 0 ? '#0a0e1a' : '#6b7280',
+                                    padding: '12px 32px',
+                                    borderRadius: '8px',
+                                    cursor: selectedCards.length > 0 ? 'pointer' : 'not-allowed',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                확인
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ====================================
+        // MAIN INTEGRATED COMPONENT
+        // ====================================
+        function IntegratedGame() {
+            const [gameMode, setGameMode] = useState('map');
+            const [showGlobalChar, setShowGlobalChar] = useState(false);
+
+            useEffect(() => {
+                const callback = (mode) => setGameMode(mode);
+                GameStateManager.addListener(callback);
+                return () => GameStateManager.removeListener(callback);
+            }, []);
+
+            // 전역 C키 핸들러 (맵과 전투 모드에서 동작)
+            useEffect(() => {
+                const handleGlobalKeyDown = (e) => {
+                    if ((e.key === "c" || e.key === "C") && (gameMode === 'map' || gameMode === 'battle')) {
+                        setShowGlobalChar(prev => !prev);
+                    }
+                };
+                window.addEventListener("keydown", handleGlobalKeyDown);
+                return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+            }, [gameMode]);
+
+            return (
+                <div style={{width: '100%', height: '100vh', position: 'relative'}}>
+                    <div className={`game-view ${gameMode !== 'map' ? 'hidden' : ''}`}>
+                        <MapSystem />
+                    </div>
+                    <div className={`game-view ${gameMode !== 'dungeon' ? 'hidden' : ''}`}>
+                        {gameMode === 'dungeon' && <DungeonSystem key={Date.now()} />}
+                    </div>
+                    <div className={`game-view ${gameMode !== 'battle' ? 'hidden' : ''}`}>
+                        {gameMode === 'battle' && <BattleSystem />}
+                    </div>
+                    {showGlobalChar && <GlobalCharacterModal onClose={() => setShowGlobalChar(false)} />}
+                </div>
+            );
+        }
+
+        // ====================================
+        // MAP SYSTEM (Vanilla JS from map.html)
+        // ====================================
+        function MapSystem() {
+            const containerRef = useRef(null);
+
+            useEffect(() => {
+                if (!containerRef.current) return;
+
+                const root = containerRef.current;
+                const NODE_TYPES = ['battle', 'battle', 'event', 'shop', 'rest', 'elite'];
+                const ICON_MAP = {
+                    battle: '⚔️', elite: '👹', shop: '🛒', event: '❓',
+                    rest: '🔥', boss: '💀', dungeon: '🏰',
+                };
+                const MAP_LAYERS = 7;
+                const MAP_COLUMNS = 7;
+                const MAP_WIDTH = 760;
+                const V_SPACING = 140;
+                const NODE_WIDTH = 96;
+                const NODE_HEIGHT = 100;
+                const SVG_NS = 'http://www.w3.org/2000/svg';
+
+                function randomInt(min, max) {
+                    return Math.floor(Math.random() * (max - min + 1)) + min;
+                }
+
+                function columnToX(column) {
+                    return (MAP_WIDTH / (MAP_COLUMNS + 1)) * (column + 1);
+                }
+
+                function layerToY(layerIdx) {
+                    return (MAP_LAYERS - 1 - layerIdx) * V_SPACING + 60;
+                }
+
+                function generateMap() {
+                    const layers = [];
+                    for (let layer = 0; layer < MAP_LAYERS; layer++) {
+                        const count = (layer === 0 || layer === MAP_LAYERS - 1) ? 1 : randomInt(2, 4);
+                        const columns = Array.from({length: MAP_COLUMNS}, (_, i) => i);
+                        for (let i = columns.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [columns[i], columns[j]] = [columns[j], columns[i]];
+                        }
+                        const selected = layer === 0 || layer === MAP_LAYERS - 1
+                            ? [Math.floor(MAP_COLUMNS / 2)]
+                            : columns.slice(0, count).sort((a, b) => a - b);
+
+                        const nodes = selected.map((column, index) => ({
+                            id: `L${layer}-N${index}`,
+                            layer, column,
+                            x: columnToX(column),
+                            y: layerToY(layer),
+                            type: 'battle',
+                            connections: [],
+                        }));
+                        layers.push(nodes);
+                    }
+
+                    for (let layer = 0; layer < MAP_LAYERS - 1; layer++) {
+                        const current = layers[layer];
+                        const next = layers[layer + 1];
+                        current.forEach(node => {
+                            let targets = next.filter(n => Math.abs(n.column - node.column) <= 1);
+                            if (!targets.length) {
+                                targets = [next.reduce((closest, n) =>
+                                    Math.abs(n.column - node.column) < Math.abs(closest.column - node.column) ? n : closest
+                                )];
+                            }
+                            node.connections = targets.map(t => t.id);
+                        });
+                    }
+
+                    const flatNodes = layers.flat();
+                    const startNode = flatNodes.find(n => n.layer === 0);
+                    const bossNode = flatNodes.find(n => n.layer === MAP_LAYERS - 1);
+                    startNode.type = 'event';
+                    startNode.isStart = true;
+                    bossNode.type = 'boss';
+
+                    flatNodes.filter(n => n !== startNode && n !== bossNode).forEach(node => {
+                        if (Math.random() < 0.2) node.type = 'event';
+                        else if (Math.random() < 0.15) node.type = 'dungeon';
+                        else node.type = NODE_TYPES[Math.floor(Math.random() * NODE_TYPES.length)];
+                    });
+
+                    flatNodes.forEach(node => {
+                        node.cleared = node.layer === 0;
+                        node.selectable = node.layer === 1;
+                        node.displayLabel = node.isStart ? 'Start' : (node.type === 'event' ? '?' : node.type.toUpperCase());
+                    });
+
+                    return { nodes: flatNodes, currentNodeId: startNode.id };
+                }
+
+                function travel(nodeId) {
+                    const target = state.map.nodes.find(n => n.id === nodeId);
+                    if (!target || !target.selectable || target.cleared) return;
+
+                    state.map.nodes.forEach(n => { if (!n.cleared) n.selectable = false; });
+                    target.cleared = true;
+                    state.map.currentNodeId = target.id;
+
+                    target.connections.forEach(id => {
+                        const next = state.map.nodes.find(n => n.id === id);
+                        if (next && !next.cleared) next.selectable = true;
+                    });
+
+                    if (target.type === 'dungeon') {
+                        GameStateManager.enterDungeon(target);
+                        return;
+                    } else if (target.type === 'battle' || target.type === 'elite' || target.type === 'boss') {
+                        GameStateManager.triggerBattle({
+                            enemy: target.type === 'boss' ? 'Dragon' : target.type === 'elite' ? 'Orc' : 'Goblin',
+                            returnTo: 'map'
+                        });
+                        return;
+                    }
+                    render();
+                }
+
+                function createNodeButton(node) {
+                    const button = document.createElement('button');
+                    button.className = `node ${node.type}`;
+                    if (node.selectable && !node.cleared) button.classList.add('selectable');
+                    if (node.cleared) button.classList.add('cleared');
+
+                    let baseStyle = `position:absolute;left:${node.x-NODE_WIDTH/2}px;top:${node.y-NODE_HEIGHT/2}px;width:96px;height:100px;border-radius:18px;background:rgba(21,27,44,0.95);border:2px solid rgba(73,92,143,0.6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#f4f6ff;pointer-events:auto;transition:transform 0.16s, border 0.16s, background 0.16s;`;
+
+                    if (node.selectable && !node.cleared) {
+                        baseStyle += 'cursor:pointer;border-color:#68c9ff;background:rgba(54,72,116,0.85);box-shadow:0 0 16px rgba(104,201,255,0.45);';
+                    }
+                    if (node.cleared) {
+                        baseStyle += 'border-color:#6ef19e;background:rgba(22,52,34,0.9);';
+                    }
+                    button.style.cssText = baseStyle;
+
+                    if (!node.isStart) {
+                        const icon = document.createElement('span');
+                        icon.style.fontSize = '26px';
+                        icon.textContent = ICON_MAP[node.type] ?? '';
+                        button.appendChild(icon);
+                    }
+                    const label = document.createElement('span');
+                    label.textContent = node.displayLabel;
+                    button.appendChild(label);
+                    button.addEventListener('click', () => travel(node.id));
+
+                    button.addEventListener('mouseenter', () => {
+                        if (node.selectable && !node.cleared) {
+                            button.style.transform = 'translateY(-6px)';
+                        }
+                    });
+                    button.addEventListener('mouseleave', () => {
+                        button.style.transform = 'translateY(0)';
+                    });
+
+                    return button;
+                }
+
+                function render() {
+                    root.innerHTML = '';
+                    root.style.cssText = 'width:100%;height:100vh;background:radial-gradient(circle at 20% 0%, rgba(34, 64, 122, 0.45), rgba(2, 4, 9, 0.9));padding:32px;overflow-y:auto;';
+
+                    const app = document.createElement('div');
+                    app.style.cssText = 'max-width:1080px;margin:0 auto;';
+                    root.appendChild(app);
+
+                    const header = document.createElement('h1');
+                    header.textContent = '로그라이크 경로 선택 맵';
+                    header.style.cssText = 'color:#f4f6ff;font-size:28px;margin:0 0 20px 0;';
+                    app.appendChild(header);
+
+                    const mapSection = document.createElement('section');
+                    mapSection.style.cssText = `position:relative;min-height:${Math.max(...state.map.nodes.map(n => n.y)) + 160}px;border-radius:18px;border:1px solid rgba(109,134,181,0.2);background:rgba(5,8,13,0.92);`;
+                    app.appendChild(mapSection);
+
+                    state.map.nodes.forEach(node => {
+                        node.connections.forEach(targetId => {
+                            const target = state.map.nodes.find(n => n.id === targetId);
+                            if (target) {
+                                const svg = document.createElementNS(SVG_NS, 'svg');
+                                svg.style.cssText = `position:absolute;left:${Math.min(node.x, target.x)-48}px;top:${Math.min(node.y, target.y)-50}px;`;
+                                svg.setAttribute('width', Math.abs(target.x - node.x) + 96);
+                                svg.setAttribute('height', Math.abs(target.y - node.y) + 100);
+                                const line = document.createElementNS(SVG_NS, 'line');
+                                line.setAttribute('x1', node.x < target.x ? 48 : Math.abs(target.x - node.x) + 48);
+                                line.setAttribute('y1', node.y < target.y ? 50 : Math.abs(target.y - node.y) + 50);
+                                line.setAttribute('x2', target.x < node.x ? 48 : Math.abs(target.x - node.x) + 48);
+                                line.setAttribute('y2', target.y < node.y ? 50 : Math.abs(target.y - node.y) + 50);
+                                line.style.cssText = 'stroke:rgba(102,148,255,0.35);stroke-width:1.4;';
+                                svg.appendChild(line);
+                                mapSection.appendChild(svg);
+                            }
+                        });
+                    });
+
+                    state.map.nodes.forEach(node => {
+                        mapSection.appendChild(createNodeButton(node));
+                    });
+                }
+
+                const state = { map: generateMap() };
+                GameStateManager.mapState = state;
+                render();
+            }, []);
+
+            return <div ref={containerRef} />;
+        }
+
+        // ====================================
+        // DUNGEON SYSTEM (Complete from Dungeon.html with C key support)
+        // ====================================
+        function DungeonSystem() {
+            const containerRef = useRef(null);
+            const [showChar, setShowChar] = useState(false);
+            const [specialMode, setSpecialMode] = useState("main");
+            const [mainSpecials, setMainSpecials] = useState([]);
+            const [subSpecials, setSubSpecials] = useState([]);
+
+            const baseStats = {
+                hp: { current: 30, max: 30 },
+                energy: { current: 6, max: 6 },
+                speed: 30,
+                power: 0,
+            };
+
+            const initialDeck = [
+                { slot: 1, name: "Quick Slash", type: "공격", speed: 3, ap: 1, desc: "빠른 근접 공격, 선제용" },
+                { slot: 2, name: "Guard Stance", type: "방어", speed: 6, ap: 1, desc: "기본 방어자세, 방어력 확보" },
+                { slot: 3, name: "Parry", type: "반격", speed: 2, ap: 1, desc: "공격을 흘려 반격" },
+                { slot: 4, name: "Focus Heal", type: "회복", speed: 10, ap: 2, desc: "집중 치유, 체력 회복" },
+                { slot: 5, name: "Feint Strike", type: "공격", speed: 4, ap: 1, desc: "하이리스크 하이리턴 공격" },
+                { slot: 6, name: "Adrenaline Surge", type: "버프", speed: 4, ap: 2, desc: "속도/행동력 버프" },
+            ];
+
+            // Phaser game initialization
+            useEffect(() => {
+                if (!containerRef.current) return;
+
+                function clamp(v, min, max) {
+                    return v < min ? min : v > max ? max : v;
+                }
+                function randInt(min, max) {
+                    return Math.floor(Math.random() * (max - min + 1)) + min;
+                }
+                function choice(arr) {
+                    return arr[Math.floor(Math.random() * arr.length)];
+                }
+
+                class DungeonCorridorScene extends Phaser.Scene {
+                    constructor() {
+                        super({ key: "DungeonCorridorScene" });
+                    }
+
+                    init(data) {
+                        this.segmentIndex = (data && data.segmentIndex) || 1;
+                        let maxSeg = this.registry.get("maxSegments");
+                        if (!maxSeg) {
+                            maxSeg = randInt(5, 9);
+                            this.registry.set("maxSegments", maxSeg);
+                        }
+                        this.maxSegments = maxSeg;
+                        this.initialPlayerX = 200;
+                    }
+
+                    create() {
+                        const width = this.game.config.width;
+                        const height = this.game.config.height;
+                        const floorY = height - 120;
+                        const worldWidth = 2200;
+
+                        this.cameras.main.setBounds(0, 0, worldWidth, height);
+                        this.physics.world.setBounds(0, 0, worldWidth, height);
+
+                        this.add.rectangle(worldWidth / 2, height / 2, worldWidth, height, 0x050608);
+                        this.add.rectangle(worldWidth / 2, height - 80, worldWidth, 160, 0x181818);
+
+                        for (let x = 200; x < worldWidth; x += 320) {
+                            this.add.rectangle(x, floorY - 40, 10, 80, 0x303030);
+                        }
+
+                        this.doorX = 1600;
+                        this.add.rectangle(this.doorX, floorY - 40, 46, 100, 0x444488);
+                        this.add.text(this.doorX, floorY - 130, "방으로 들어가는 문", {
+                            fontSize: "12px", fill: "#ffffff",
+                        }).setOrigin(0.5);
+
+                        this.objects = [];
+                        this.objectSprites = {};
+
+                        const corridorObjectsDefs = [
+                            { type: "chest", label: "통로의 상자" },
+                            { type: "curio", label: "벽에 걸린 부적" },
+                            { type: "none", label: "" },
+                        ];
+
+                        for (let i = 0; i < 2; i++) {
+                            const def = choice(corridorObjectsDefs);
+                            if (def.type === "none") continue;
+                            this.objects.push({
+                                id: `corr_obj_${i}`,
+                                type: def.type,
+                                x: randInt(400, 1300),
+                                label: def.label,
+                                used: false,
+                            });
+                        }
+
+                        // ! 이벤트 25% 확률
+                        if (Math.random() < 0.25) {
+                            this.objects.push({
+                                id: "corr_event_1",
+                                type: "event",
+                                x: randInt(600, 1400),
+                                label: "강한 기운의 흔적",
+                                used: false,
+                            });
+                        }
+
+                        this.objects.forEach((obj) => {
+                            let sprite = null;
+                            if (obj.type === "chest") {
+                                sprite = this.add.rectangle(obj.x, floorY - 10, 60, 40, 0x996633);
+                            } else if (obj.type === "curio") {
+                                sprite = this.add.circle(obj.x, floorY - 30, 20, 0x5577aa);
+                            } else if (obj.type === "event") {
+                                sprite = this.add.text(obj.x, floorY - 80, "!", {
+                                    fontSize: "40px", fill: "#ffdd33",
+                                }).setOrigin(0.5);
+                            }
+                            this.objectSprites[obj.id] = sprite;
+                        });
+
+                        this.player = this.add.rectangle(this.initialPlayerX, height - 140, 28, 64, 0xddddff);
+                        this.physics.add.existing(this.player);
+                        this.player.body.setCollideWorldBounds(true);
+                        this.cameras.main.startFollow(this.player, true, 0.09, 0.09);
+
+                        this.speed = 220;
+                        this.keys = this.input.keyboard.addKeys("W,A,S,D,E");
+
+                        this.infoText = this.add.text(16, 16, `통로 ${this.segmentIndex}/${this.maxSegments} | WASD 이동 | E: 문/오브젝트`, {
+                            fontSize: "14px", fill: "#ffffff"
+                        }).setScrollFactor(0);
+
+                        this.interactionText = this.add.text(16, 40, "", {
+                            fontSize: "14px", fill: "#88ffdd"
+                        }).setScrollFactor(0);
+
+                        this.currentInteractable = null;
+                        this.playerLocked = false;
+
+                        this.keys.E.on("down", () => {
+                            if (!this.currentInteractable) return;
+                            if (this.currentInteractable.kind === "door") {
+                                this.enterRoom();
+                            } else if (this.currentInteractable.kind === "object") {
+                                this.handleObjectInteraction(this.currentInteractable.data);
+                            }
+                        });
+                    }
+
+                    update() {
+                        const body = this.player.body;
+
+                        if (!this.playerLocked) {
+                            body.setVelocity(0);
+                            if (this.keys.A.isDown) body.setVelocityX(-this.speed);
+                            else if (this.keys.D.isDown) body.setVelocityX(this.speed);
+                            if (this.keys.W.isDown) body.setVelocityY(-this.speed / 3);
+                            else if (this.keys.S.isDown) body.setVelocityY(this.speed / 3);
+                        } else {
+                            body.setVelocity(0);
+                        }
+
+                        this.player.y = clamp(this.player.y, this.game.config.height - 220, this.game.config.height - 100);
+
+                        let nearest = null;
+                        let nearestDist = 9999;
+                        const range = 80;
+
+                        const doorDist = Math.abs(this.player.x - this.doorX);
+                        if (doorDist < range) {
+                            nearest = { kind: "door", data: null };
+                            nearestDist = doorDist;
+                        }
+
+                        // 자동 트리거: ! 이벤트
+                        for (let obj of this.objects) {
+                            if (obj.type === "event" && !obj.used) {
+                                const dist = Math.abs(this.player.x - obj.x);
+                                if (dist < 60) {
+                                    obj.used = true;
+                                    // ! 위치 저장 (DungeonCorridorScene)
+                                    GameStateManager.saveDungeonPosition(this.player.x, this.player.y, 'DungeonCorridorScene');
+                                    GameStateManager.phaserGameInstance = this.game;
+                                    this.scene.pause();
+                                    GameStateManager.triggerBattle({
+                                        enemy: 'Goblin',
+                                        returnTo: 'dungeon',
+                                    });
+                                    return;
+                                }
+                            }
+                            if (obj.used && obj.type !== "event") continue;
+                            const dist = Math.abs(this.player.x - obj.x);
+                            if (dist < range && dist < nearestDist) {
+                                nearest = { kind: "object", data: obj };
+                                nearestDist = dist;
+                            }
+                        }
+
+                        this.currentInteractable = nearest;
+
+                        if (!nearest) {
+                            this.interactionText.setText("");
+                        } else if (nearest.kind === "door") {
+                            this.interactionText.setText("E: 방 안으로 들어간다");
+                        } else if (nearest.kind === "object") {
+                            this.interactionText.setText(`E: [${nearest.data.label}] 조사`);
+                        }
+                    }
+
+                    handleObjectInteraction(obj) {
+                        if (obj.type === "chest" && !obj.used) {
+                            obj.used = true;
+                            const sprite = this.objectSprites[obj.id];
+                            if (sprite && sprite.setFillStyle) sprite.setFillStyle(0x555522);
+                        } else if (obj.type === "curio" && !obj.used) {
+                            obj.used = true;
+                            const sprite = this.objectSprites[obj.id];
+                            if (sprite && sprite.setFillStyle) sprite.setFillStyle(0x88aadd);
+                        }
+                    }
+
+                    enterRoom() {
+                        this.scene.start("DungeonRoomScene", { segmentIndex: this.segmentIndex });
+                    }
+                }
+
+                class DungeonRoomScene extends Phaser.Scene {
+                    constructor() {
+                        super({ key: "DungeonRoomScene" });
+                    }
+
+                    init(data) {
+                        this.segmentIndex = (data && data.segmentIndex) || 1;
+                        const maxSeg = this.registry.get("maxSegments") || 7;
+                        this.maxSegments = maxSeg;
+                        this.isLastRoom = this.segmentIndex >= this.maxSegments;
+                    }
+
+                    create() {
+                        const width = this.game.config.width;
+                        const height = this.game.config.height;
+                        const floorY = height - 120;
+
+                        this.cameras.main.setBounds(0, 0, width, height);
+                        this.physics.world.setBounds(0, 0, width, height);
+
+                        this.add.rectangle(width / 2, height / 2, width, height, 0x070409);
+                        this.add.rectangle(width / 2, height - 80, width, 160, 0x1b1418);
+
+                        this.add.text(width / 2, 40, `구간 ${this.segmentIndex}/${this.maxSegments} - 방`, {
+                            fontSize: "18px", fill: "#ffffff",
+                        }).setOrigin(0.5);
+
+                        const ROOM_TYPES = [
+                            { type: "treasure", label: "보물 방", patterns: [
+                                { dx: -140, kind: "chest", label: "잠긴 상자" },
+                                { dx: -20, kind: "curio", label: "빛나는 제단" },
+                            ]},
+                            { type: "trap", label: "함정 방", patterns: [
+                                { dx: -60, kind: "trap", label: "바닥 함정" },
+                                { dx: 80, kind: "curio", label: "수상한 조각상" },
+                            ]},
+                        ];
+
+                        const tpl = choice(ROOM_TYPES);
+                        this.add.text(width / 2, 70, tpl.label, {
+                            fontSize: "14px", fill: "#bbbbff",
+                        }).setOrigin(0.5);
+
+                        this.exitX = width - 140;
+                        const exitLabel = this.isLastRoom ? "던전 출구" : "다음 통로로";
+                        this.add.rectangle(this.exitX, floorY - 40, 40, 90, this.isLastRoom ? 0x77bb77 : 0x448844);
+                        this.add.text(this.exitX, floorY - 90, exitLabel, {
+                            fontSize: "12px", fill: "#ffffff",
+                        }).setOrigin(0.5);
+
+                        this.objects = [];
+                        tpl.patterns.forEach((pat, index) => {
+                            this.objects.push({
+                                id: `room_obj_${index}`,
+                                type: pat.kind,
+                                x: width / 2 + pat.dx,
+                                label: pat.label,
+                                used: false,
+                            });
+                        });
+
+                        // ! 이벤트 25%
+                        if (Math.random() < 0.25) {
+                            this.objects.push({
+                                id: "room_event_1",
+                                type: "event",
+                                x: width / 2,
+                                label: "불길한 전조",
+                                used: false,
+                            });
+                        }
+
+                        this.objectSprites = {};
+                        this.objects.forEach((obj) => {
+                            let sprite = null;
+                            if (obj.type === "chest") {
+                                sprite = this.add.rectangle(obj.x, floorY - 10, 60, 40, 0x996633);
+                            } else if (obj.type === "curio") {
+                                sprite = this.add.circle(obj.x, floorY - 30, 22, 0x5577aa);
+                            } else if (obj.type === "trap") {
+                                sprite = this.add.rectangle(obj.x, floorY, 80, 12, 0xaa3333);
+                            } else if (obj.type === "event") {
+                                sprite = this.add.text(obj.x, floorY - 90, "!", {
+                                    fontSize: "40px", fill: "#ffdd33",
+                                }).setOrigin(0.5);
+                            }
+                            this.objectSprites[obj.id] = sprite;
+                        });
+
+                        this.player = this.add.rectangle(width / 2, floorY - 40, 28, 64, 0xddddff);
+                        this.physics.add.existing(this.player);
+                        this.player.body.setCollideWorldBounds(true);
+
+                        this.speed = 200;
+                        this.keys = this.input.keyboard.addKeys("W,A,S,D,E");
+
+                        this.infoText = this.add.text(16, 16, `방 ${this.segmentIndex}/${this.maxSegments} | WASD 이동 | E: 출구`, {
+                            fontSize: "14px", fill: "#ffffff"
+                        }).setScrollFactor(0);
+
+                        this.interactionText = this.add.text(16, 40, "", {
+                            fontSize: "14px", fill: "#88ffdd"
+                        }).setScrollFactor(0);
+
+                        this.currentInteractable = null;
+                        this.playerLocked = false;
+                        this.dungeonFinished = false;
+
+                        this.keys.E.on("down", () => {
+                            if (!this.currentInteractable) return;
+                            if (this.currentInteractable.kind === "exit") {
+                                if (this.isLastRoom) {
+                                    this.finishDungeon();
+                                } else {
+                                    this.goNextCorridor();
+                                }
+                            } else if (this.currentInteractable.kind === "object") {
+                                this.handleObjectInteraction(this.currentInteractable.data);
+                            }
+                        });
+                    }
+
+                    update() {
+                        const body = this.player.body;
+
+                        if (!this.playerLocked) {
+                            body.setVelocity(0);
+                            if (this.keys.A.isDown) body.setVelocityX(-this.speed);
+                            else if (this.keys.D.isDown) body.setVelocityX(this.speed);
+                            if (this.keys.W.isDown) body.setVelocityY(-this.speed / 3);
+                            else if (this.keys.S.isDown) body.setVelocityY(this.speed / 3);
+                        } else {
+                            body.setVelocity(0);
+                        }
+
+                        this.player.y = clamp(this.player.y, this.game.config.height - 220, this.game.config.height - 100);
+
+                        let nearest = null;
+                        const range = 80;
+
+                        const exitDist = Math.abs(this.player.x - this.exitX);
+                        if (exitDist < range) {
+                            nearest = { kind: "exit", data: null };
+                        }
+
+                        // 자동 트리거: ! 이벤트
+                        for (let obj of this.objects) {
+                            if (obj.type === "event" && !obj.used) {
+                                const dist = Math.abs(this.player.x - obj.x);
+                                if (dist < 60) {
+                                    obj.used = true;
+                                    // ! 위치 저장 (DungeonRoomScene)
+                                    GameStateManager.saveDungeonPosition(this.player.x, this.player.y, 'DungeonRoomScene');
+                                    GameStateManager.phaserGameInstance = this.game;
+                                    this.scene.pause();
+                                    GameStateManager.triggerBattle({
+                                        enemy: 'Goblin',
+                                        returnTo: 'dungeon',
+                                    });
+                                    return;
+                                }
+                            }
+                            if (obj.used && obj.type !== "event") continue;
+                            const dist = Math.abs(this.player.x - obj.x);
+                            if (dist < range) {
+                                nearest = { kind: "object", data: obj };
+                            }
+                        }
+
+                        this.currentInteractable = nearest;
+
+                        if (!nearest) {
+                            this.interactionText.setText("");
+                        } else if (nearest.kind === "exit") {
+                            this.interactionText.setText(this.isLastRoom ? "E: 던전 출구로 나간다" : "E: 다음 통로로 나아간다");
+                        } else if (nearest.kind === "object") {
+                            this.interactionText.setText(`E: [${nearest.data.label}] 조사`);
+                        }
+                    }
+
+                    handleObjectInteraction(obj) {
+                        if (obj.used && obj.type !== "event") return;
+                        if (obj.type === "chest" && !obj.used) {
+                            obj.used = true;
+                            const sprite = this.objectSprites[obj.id];
+                            if (sprite && sprite.setFillStyle) sprite.setFillStyle(0x555522);
+                        } else if (obj.type === "curio" && !obj.used) {
+                            obj.used = true;
+                            const sprite = this.objectSprites[obj.id];
+                            if (sprite && sprite.setFillStyle) sprite.setFillStyle(0x88aadd);
+                        } else if (obj.type === "trap" && !obj.used) {
+                            obj.used = true;
+                            const sprite = this.objectSprites[obj.id];
+                            if (sprite && sprite.setFillStyle) sprite.setFillStyle(0x333333);
+                        }
+                    }
+
+                    goNextCorridor() {
+                        if (this.dungeonFinished) return;
+                        this.scene.start("DungeonCorridorScene", { segmentIndex: this.segmentIndex + 1 });
+                    }
+
+                    finishDungeon() {
+                        if (this.dungeonFinished) return;
+                        this.dungeonFinished = true;
+                        GameStateManager.exitDungeon();
+                    }
+                }
+
+                const config = {
+                    type: Phaser.AUTO,
+                    width: 960,
+                    height: 540,
+                    backgroundColor: "#000000",
+                    physics: {
+                        default: "arcade",
+                        arcade: { gravity: { y: 0 }, debug: false },
+                    },
+                    scene: [DungeonCorridorScene, DungeonRoomScene],
+                    parent: containerRef.current,
+                };
+
+                const game = new Phaser.Game(config);
+
+                return () => {
+                    game.destroy(true);
+                };
+            }, []);
+
+            // C key handler for character modal
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === "c" || e.key === "C") {
+                        setShowChar((prev) => !prev);
+                    }
+                };
+                window.addEventListener("keydown", handleKeyDown);
+                return () => window.removeEventListener("keydown", handleKeyDown);
+            }, []);
+
+            const handleCardClick = (slot) => {
+                if (specialMode === "main") {
+                    setMainSpecials((prev) => {
+                        if (prev.includes(slot)) return prev.filter((s) => s !== slot);
+                        if (prev.length >= 3) return prev;
+                        setSubSpecials((prevSub) => prevSub.filter((s) => s !== slot));
+                        return [...prev, slot];
+                    });
+                } else {
+                    setSubSpecials((prev) => {
+                        if (prev.includes(slot)) return prev.filter((s) => s !== slot);
+                        if (prev.length >= 5) return prev;
+                        setMainSpecials((prevMain) => prevMain.filter((s) => s !== slot));
+                        return [...prev, slot];
+                    });
+                }
+            };
+
+            const getCardStyle = (slot) => {
+                const isMain = mainSpecials.includes(slot);
+                const isSub = subSpecials.includes(slot);
+                let borderColor = "#31314a";
+                let boxShadow = "none";
+                let background = "#1b1b24";
+
+                if (isMain) {
+                    borderColor = "#f5d76e";
+                    boxShadow = "0 0 8px rgba(245,215,110,0.9)";
+                    background = "#2a2615";
+                } else if (isSub) {
+                    borderColor = "#4ea3ff";
+                    boxShadow = "0 0 8px rgba(78,163,255,0.9)";
+                    background = "#172538";
+                }
+
+                return {
+                    borderRadius: 6,
+                    padding: "4px 6px",
+                    marginBottom: 4,
+                    background,
+                    border: `1px solid ${borderColor}`,
+                    boxShadow,
+                    cursor: "pointer",
+                };
+            };
+
+            return (
+                <div style={{ width: '100%', height: '100vh', position: 'relative' }}>
+                    <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+                    {showChar && (
+                        <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'rgba(0,0,0,0.6)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 10,
+                        }}>
+                            <div style={{
+                                width: 560,
+                                maxHeight: '82vh',
+                                background: '#151521',
+                                borderRadius: 12,
+                                border: '1px solid #3a3a60',
+                                boxShadow: '0 14px 40px rgba(0,0,0,0.8)',
+                                padding: 16,
+                                boxSizing: 'border-box',
+                                overflowY: 'auto',
+                            }}>
+                                <h2 style={{ fontSize: 18, margin: '0 0 8px', color: '#fff' }}>캐릭터</h2>
+                                <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 10, color: '#aaa' }}>
+                                    주특기 / 보조특기 카드 선택 UI (C 키로 닫기)
+                                </div>
+
+                                <div style={{
+                                    borderRadius: 8,
+                                    padding: 8,
+                                    marginBottom: 10,
+                                    background: '#181820',
+                                    border: '1px solid #303040',
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13, color: '#fff' }}>
+                                        <span style={{ opacity: 0.8 }}>체력</span>
+                                        <span style={{ fontWeight: 600 }}>{baseStats.hp.current} / {baseStats.hp.max}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13, color: '#fff' }}>
+                                        <span style={{ opacity: 0.8 }}>에너지</span>
+                                        <span style={{ fontWeight: 600 }}>{baseStats.energy.current} / {baseStats.energy.max}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13, color: '#fff' }}>
+                                        <span style={{ opacity: 0.8 }}>속도</span>
+                                        <span style={{ fontWeight: 600 }}>{baseStats.speed}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#fff' }}>
+                                        <span style={{ opacity: 0.8 }}>힘</span>
+                                        <span style={{ fontWeight: 600 }}>{baseStats.power}</span>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                                    <button
+                                        onClick={() => setSpecialMode("main")}
+                                        style={{
+                                            flex: 1,
+                                            padding: '4px 6px',
+                                            fontSize: 12,
+                                            borderRadius: 6,
+                                            border: '1px solid #3a3a60',
+                                            background: specialMode === "main" ? 'linear-gradient(135deg, #f5d76e, #c9a64a)' : '#181820',
+                                            color: specialMode === "main" ? '#000' : '#ddd',
+                                            fontWeight: specialMode === "main" ? 700 : 500,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        주특기 선택 모드
+                                    </button>
+                                    <button
+                                        onClick={() => setSpecialMode("sub")}
+                                        style={{
+                                            flex: 1,
+                                            padding: '4px 6px',
+                                            fontSize: 12,
+                                            borderRadius: 6,
+                                            border: '1px solid #3a3a60',
+                                            background: specialMode === "sub" ? 'linear-gradient(135deg, #4ea3ff, #2b6fbf)' : '#181820',
+                                            color: specialMode === "sub" ? '#000' : '#ddd',
+                                            fontWeight: specialMode === "sub" ? 700 : 500,
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        보조특기 선택 모드
+                                    </button>
+                                </div>
+
+                                <div style={{ fontSize: 11, opacity: 0.8, textAlign: 'right', marginBottom: 6, color: '#aaa' }}>
+                                    주특기: {mainSpecials.length} / 3 | 보조특기: {subSpecials.length} / 5
+                                </div>
+
+                                <h3 style={{ fontSize: 14, margin: '0 0 4px', color: '#fff' }}>카드 선택</h3>
+                                <div style={{
+                                    borderRadius: 8,
+                                    padding: 8,
+                                    background: '#16161d',
+                                    border: '1px solid #28283a',
+                                    maxHeight: '40vh',
+                                    overflowY: 'auto',
+                                }}>
+                                    {initialDeck.map((card) => (
+                                        <div
+                                            key={card.slot}
+                                            style={getCardStyle(card.slot)}
+                                            onClick={() => handleCardClick(card.slot)}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2, color: '#fff' }}>
+                                                <span>
+                                                    <span style={{ opacity: 0.7 }}>슬롯 {card.slot}</span>{" "}
+                                                    <b>{card.name}</b>
+                                                    <span style={{ opacity: 0.6 }}> · {card.type}</span>
+                                                </span>
+                                                <span style={{ fontSize: 11, opacity: 0.8 }}>
+                                                    속도 {card.speed} / 행동력 {card.ap}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: 12, opacity: 0.9, color: '#ccc' }}>
+                                                {card.desc}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // ====================================
+        // BATTLE SYSTEM ICONS
+        // ====================================
+        const Sword = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>
+            </svg>
+        );
+
+        const Shield = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+        );
+
+        const Heart = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+        );
+
+        const Zap = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+        );
+
+        const Flame = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+        );
+
+        const Clock = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+            </svg>
+        );
+
+        const Skull = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>
+                <path d="M8 20v2h8v-2M12.5 17l-.5-1-.5 1h1z"/>
+                <path d="M16 18a8 8 0 1 0-8 0v2h8v-2z"/>
+            </svg>
+        );
+
+        const X = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        );
+
+        const ChevronUp = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polyline points="18 15 12 9 6 15"/>
+            </svg>
+        );
+
+        const ChevronDown = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polyline points="6 9 12 15 18 9"/>
+            </svg>
+        );
+
+        const Play = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+        );
+
+        const StepForward = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/>
+            </svg>
+        );
+
+        const RefreshCw = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+        );
+
+        // ====================================
+        // BATTLE SYSTEM CONSTANTS & CONFIG
+        // ====================================
+        const MAX_SPEED = 30;
+        const BASE_PLAYER_ENERGY = 6;
+        const MAX_SUBMIT_CARDS = 5;
+        const ETHER_THRESHOLD = 100;
+
+        const CARDS = [
+          { id: "quick",   name: "Quick Slash",    type: "attack",  damage: 3,              speedCost: 3,  actionCost: 1, icon: Sword },
+          { id: "slash",   name: "Slash",          type: "attack",  damage: 5,              speedCost: 5,  actionCost: 2, icon: Sword },
+          { id: "heavy",   name: "Heavy Strike",   type: "attack",  damage: 8,              speedCost: 10, actionCost: 2, icon: Flame },
+          { id: "double",  name: "Double Slash",   type: "attack",  damage: 3, hits: 2,     speedCost: 7,  actionCost: 2, icon: Sword },
+          { id: "precise", name: "Precise Strike", type: "attack",  damage: 6,              speedCost: 6,  actionCost: 2, icon: Sword },
+          { id: "rush",    name: "Rush Attack",    type: "attack",  damage: 4,              speedCost: 4,  actionCost: 1, icon: Flame },
+          { id: "parry",   name: "Parry",          type: "defense", block: 5,               speedCost: 2,  actionCost: 1, icon: Shield, counter: 0 },
+          { id: "guard",   name: "Guard",          type: "defense", block: 8,               speedCost: 6,  actionCost: 1, icon: Shield },
+          { id: "wall",    name: "Iron Wall",      type: "defense", block: 12,              speedCost: 9,  actionCost: 2, icon: Shield },
+          { id: "counter", name: "Counter Stance", type: "defense", block: 4, counter: 3,   speedCost: 4,  actionCost: 1, icon: Shield },
+        ];
+
+        const ENEMY_CARDS = [
+          { id: "e1", name: "Attack",  type: "attack",  damage: 3, speedCost: 3, actionCost: 1, icon: Sword },
+          { id: "e2", name: "Heavy",   type: "attack",  damage: 6, speedCost: 8, actionCost: 2, icon: Flame },
+          { id: "e3", name: "Guard",   type: "defense", block: 4, speedCost: 2, actionCost: 1, icon: Shield },
+          { id: "e4", name: "Strike",  type: "attack",  damage: 4, speedCost: 5, actionCost: 1, icon: Sword },
+          { id: "e5", name: "Defense", type: "defense", block: 6, speedCost: 6, actionCost: 1, icon: Shield },
+          { id: "e6", name: "Barrier", type: "defense", block: 8, speedCost: 9, actionCost: 2, icon: Shield },
+        ];
+
+        const ENEMIES = [
+          { name: "Goblin", hp: 20, deck: ["e1", "e3", "e4"] },
+          { name: "Orc",    hp: 30, deck: ["e2", "e4", "e5"] },
+          { name: "Dragon", hp: 50, deck: ["e2", "e2", "e5", "e6", "e4"] },
+        ];
+
+        // ====================================
+        // BATTLE SYSTEM UTILITIES
+        // ====================================
+        const choice = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+        function sortCombinedOrderStablePF(playerCards, enemyCards) {
+          const q = []; let ps = 0, es = 0;
+          (playerCards||[]).forEach((c, idx) => { ps += c.speedCost; q.push({ actor: 'player', card: c, sp: ps, idx }); });
+          (enemyCards||[]).forEach((c, idx) => { es += c.speedCost; q.push({ actor: 'enemy',  card: c, sp: es, idx }); });
+          q.sort((a, b) => {
+            if (a.sp !== b.sp) return a.sp - b.sp;
+            if (a.actor !== b.actor) return a.actor === 'player' ? -1 : 1;
+            return a.idx - b.idx;
+          });
+          return q;
+        }
+
+        function detectPokerCombo(cards){
+          if(!cards || cards.length < 2) return null;
+          const freq = new Map();
+          for(const c of cards){ freq.set(c.actionCost, (freq.get(c.actionCost)||0)+1); }
+          const counts = Array.from(freq.values());
+          const have = (n)=>counts.includes(n);
+          const keysByCount = (n)=> new Set(Array.from(freq.entries()).filter(([k,v])=>v===n).map(([k])=>Number(k)));
+
+          const allAttack = cards.every(c=>c.type==='attack');
+          const allDefense = cards.every(c=>c.type==='defense');
+          const isFlush = (allAttack || allDefense) && cards.length>=4;
+
+          if(have(5)) return { name:'파이브카드', bonusKeys: keysByCount(5) };
+          if(have(4)) return { name:'포카드',   bonusKeys: keysByCount(4) };
+          if(have(3) && have(2)){
+            const b = new Set([...keysByCount(3), ...keysByCount(2)]);
+            return { name:'풀하우스', bonusKeys: b };
+          }
+          if(isFlush) return { name:'플러쉬', bonusKeys: null };
+          const pairKeys = keysByCount(2);
+          if(pairKeys.size >= 2) return { name:'투페어',  bonusKeys: pairKeys };
+          if(have(3)) return { name:'트리플',  bonusKeys: keysByCount(3) };
+          if(have(2)) return { name:'페어',    bonusKeys: pairKeys };
+          return null;
+        }
+
+        function applyPokerBonus(cards, combo){
+          if(!combo) return cards;
+          return cards.map(c=>{
+            if(combo.bonusKeys && combo.bonusKeys.has(c.actionCost)){
+              if(c.type==='attack') return { ...c, damage:(c.damage||0)+1, _combo: combo.name };
+              if(c.type==='defense') return { ...c, block:(c.block||0)+1, _combo: combo.name };
+            }
+            return c;
+          });
+        }
+
+        const ETHER_GAIN_MAP = {
+          '페어': 10,
+          '투페어': 10,
+          '트리플': 20,
+          '플러쉬': 30,
+          '풀하우스': 40,
+          '포카드': 50,
+          '파이브카드': 60,
+        };
+        function etherSlots(pts){ return Math.floor((pts||0) / ETHER_THRESHOLD); }
+        function addEther(pts, add){ return (pts||0) + (add||0); }
+
+        // ====================================
+        // BATTLE SYSTEM COMBAT LOGIC
+        // ====================================
+        function applyAction(state, actor, card){
+          const A = actor==='player' ? state.player : state.enemy;
+          const B = actor==='player' ? state.enemy  : state.player;
+          const events = [];
+
+          if(card.type==='defense'){
+            const prev = A.block || 0;
+            const added = card.block || 0;
+            const after = prev + added;
+            A.def = true; A.block = after;
+            if(card.counter!==undefined){ A.counter = card.counter || 0; }
+            const who = actor==='player' ? '플레이어' : '몬스터';
+            const msg = prev===0 ? `${who} • 🛡️ +${added} = ${after}` : `${who} • 🛡️ ${prev} + ${added} = ${after}`;
+            events.push({ actor, card:card.name, type:'defense', msg });
+            state.log.push(`${actor==='player'?'🔵':'👾'} ${card.name} → ${msg}`);
+            return { dealt:0, taken:0, events };
+          }
+
+          if(card.type==='attack'){
+            let totalDealt = 0, totalTaken = 0;
+            const hits = card.hits || 1;
+
+            for(let i=0;i<hits;i++){
+              const base = card.damage;
+              const boost = (A.etherOverdriveActive) ? 2 : 1;
+              let dmg = base * boost;
+
+              if(B.def && (B.block||0) > 0){
+                const beforeBlock = B.block;
+                if(dmg < beforeBlock){
+                  const remaining = beforeBlock - dmg;
+                  B.block = remaining; dmg = 0;
+                  A.vulnMult = 1 + (remaining * 0.5); A.vulnTurns = 1;
+                  const formula = `(방어력 ${beforeBlock} - 공격력 ${base}${boost>1?'×2':''} = ${remaining})`;
+                  const msg = `${actor==='player' ? '플레이어 -> 몬스터' : '몬스터 -> 플레이어'} • 차단 성공 ${formula} + 취약 ×${A.vulnMult.toFixed(1)}`;
+                  events.push({ actor, card:card.name, type:'blocked', msg });
+                  state.log.push(`${actor==='player'?'🔵':'👾'} ${card.name} → ${msg}`);
+                } else {
+                  const blocked = beforeBlock;
+                  const remained = Math.max(0, dmg - blocked);
+                  const formula = `(방어력 ${blocked} - 공격력 ${base}${boost>1?'×2':''} = 0)`;
+                  B.block = 0;
+                  const vulnMul = (B.vulnMult && B.vulnMult>1) ? B.vulnMult : 1;
+                  const finalDmg = Math.floor(remained * vulnMul);
+                  const beforeHP = B.hp; B.hp = Math.max(0, B.hp - finalDmg);
+                  const msg = `${actor==='player' ? '플레이어 -> 몬스터' : '몬스터 -> 플레이어'} • 차단 ${blocked} ${formula}, 관통 ${finalDmg} (체력 ${beforeHP} -> ${B.hp})`;
+                  events.push({ actor, card:card.name, type:'pierce', dmg:finalDmg, beforeHP, afterHP:B.hp, msg });
+                  state.log.push(`${actor==='player'?'🔵':'👾'} ${card.name} → ${msg}`);
+                  if(B.counter && finalDmg>0){
+                    const beforeAHP = A.hp; A.hp = Math.max(0, A.hp - B.counter); totalTaken += B.counter;
+                    const cmsg = `${actor==='player' ? '몬스터 -> 플레이어' : '플레이어 -> 몬스터'} • 반격 ${B.counter} (체력 ${beforeAHP} -> ${A.hp})`;
+                    events.push({ actor:'counter', value:B.counter, msg:cmsg });
+                    state.log.push(`${actor==='player'?'🔵':'👾'} ${cmsg}`);
+                  }
+                  totalDealt += finalDmg;
+                }
+              } else {
+                const vulnMul = (B.vulnMult && B.vulnMult>1) ? B.vulnMult : 1;
+                const finalDmg = Math.floor(dmg * vulnMul);
+                const beforeHP = B.hp; B.hp = Math.max(0, B.hp - finalDmg);
+                const msg = `${actor==='player' ? '플레이어 -> 몬스터' : '몬스터 -> 플레이어'} • 데미지 ${finalDmg}${boost>1?' (에테르 폭주×2)':''} (체력 ${beforeHP} -> ${B.hp})`;
+                events.push({ actor, card:card.name, type:'hit', dmg:finalDmg, beforeHP, afterHP:B.hp, msg });
+                state.log.push(`${actor==='player'?'🔵':'👾'} ${card.name} → ${msg}`);
+                if(B.counter && finalDmg>0){
+                  const beforeAHP = A.hp; A.hp = Math.max(0, A.hp - B.counter); totalTaken += B.counter;
+                  const cmsg = `${actor==='player'?'몬스터→플레이어':'플레이어→몬스터'} • 반격 ${B.counter} (체력 ${beforeAHP} -> ${A.hp})`;
+                  events.push({ actor:'counter', value:B.counter, msg:cmsg });
+                  state.log.push(`${actor==='player'?'🔵':'👾'} ${cmsg}`);
+                }
+                totalDealt += finalDmg;
+              }
+            }
+            return { dealt: totalDealt, taken: totalTaken, events };
+          }
+
+          return { dealt:0, taken:0, events };
+        }
+
+        function decideEnemyMode(){
+          return choice([
+            {name:'공격적', key:'aggro',    prefer:'attack'},
+            {name:'수비적', key:'turtle',   prefer:'defense'},
+            {name:'균형적', key:'balanced', prefer:'mixed'}
+          ]);
+        }
+
+        function combosUpTo3(arr){
+          const out=[]; const n=arr.length;
+          for(let i=0;i<n;i++){
+            out.push([arr[i]]);
+            for(let j=i+1;j<n;j++){
+              out.push([arr[i],arr[j]]);
+              for(let k=j+1;k<n;k++) out.push([arr[i],arr[j],arr[k]]);
+            }
+          }
+          return out;
+        }
+
+        function generateEnemyActions(enemy, mode, enemyEtherSlots=0){
+          if(!enemy) return [];
+          const energyBudget = BASE_PLAYER_ENERGY + (enemyEtherSlots||0);
+          const deck = (enemy.deck||[])
+            .map(id=>ENEMY_CARDS.find(c=>c.id===id))
+            .filter(Boolean);
+          if(deck.length===0) return [];
+
+          const half = Math.ceil(energyBudget/2);
+          const candidates = combosUpTo3(deck).filter(cards=>{
+            const sp = cards.reduce((s,c)=>s+c.speedCost,0);
+            const en = cards.reduce((s,c)=>s+c.actionCost,0);
+            return sp<=MAX_SPEED && en<=energyBudget;
+          });
+
+          function stat(list){
+            const atk = list.filter(c=>c.type==='attack').reduce((a,c)=>a+c.actionCost,0);
+            const def = list.filter(c=>c.type==='defense').reduce((a,c)=>a+c.actionCost,0);
+            const dmg = list.filter(c=>c.type==='attack').reduce((a,c)=>a + (c.damage||0)*(c.hits||1),0);
+            const blk = list.filter(c=>c.type==='defense').reduce((a,c)=>a + (c.block||0),0);
+            const sp  = list.reduce((a,c)=>a+c.speedCost,0);
+            const en  = list.reduce((a,c)=>a+c.actionCost,0);
+            return {atk,def,dmg,blk,sp,en};
+          }
+
+          function satisfies(m,list){
+            const s = stat(list);
+            if(m?.key==='aggro') return s.atk >= half;
+            if(m?.key==='turtle') return s.def >= half;
+            if(m?.key==='balanced') return s.atk === s.def;
+            return true;
+          }
+
+          function score(m,list){
+            const s = stat(list);
+            let base=0;
+            if(m?.key==='aggro') base = s.atk*100 + s.dmg*10 - s.sp;
+            else if(m?.key==='turtle') base = s.def*100 + s.blk*10 - s.sp;
+            else base = (s.dmg+s.blk)*10 - s.sp;
+            return base;
+          }
+
+          const satisfied = candidates.filter(c=>satisfies(mode,c));
+          if(satisfied.length>0){
+            satisfied.sort((a,b)=>{
+              if(a.length!==b.length) return a.length - b.length;
+              const sa=score(mode,a), sb=score(mode,b);
+              if(sa!==sb) return sb-sa;
+              const saStat=stat(a), sbStat=stat(b);
+              if(saStat.sp!==sbStat.sp) return saStat.sp - sbStat.sp;
+              if(saStat.en!==sbStat.en) return saStat.en - sbStat.en;
+              const aKey=a.map(c=>c.id).join(','), bKey=b.map(c=>c.id).join(',');
+              return aKey<bKey? -1 : aKey>bKey? 1 : 0;
+            });
+            return satisfied[0];
+          }
+
+          if(candidates.length>0){
+            candidates.sort((a,b)=> score(mode,b)-score(mode,a));
+            return candidates[0];
+          }
+          const single = deck
+            .filter(c=>c.speedCost<=MAX_SPEED && c.actionCost<=energyBudget)
+            .sort((a,b)=> a.speedCost-b.speedCost || a.actionCost-b.actionCost)[0];
+          return single ? [single] : [];
+        }
+
+        function shouldEnemyOverdrive(mode, actions, etherPts){
+          const slots = etherSlots(etherPts);
+          if(slots<=0) return false;
+          if(!mode) return false;
+          if(mode.key==='aggro') return true;
+          if(mode.key==='balanced') return (actions||[]).some(c=>c.type==='attack');
+          return false;
+        }
+
+        function simulatePreview({player, enemy, fixedOrder, willOverdrive, enemyMode, enemyActions}){
+          if(!fixedOrder || fixedOrder.length===0){
+            return { pDealt:0, pTaken:0, finalPHp:player.hp, finalEHp:enemy.hp, lines:[] };
+          }
+          const enemyWillOD = shouldEnemyOverdrive(enemyMode, enemyActions, enemy.etherPts);
+          const P = { ...player, def:false, block:0, counter:0, etherOverdriveActive: !!willOverdrive };
+          const E = { ...enemy,  def:false, block:0, counter:0, etherOverdriveActive: enemyWillOD };
+          const st = { player:P, enemy:E, log:[] };
+          let pDealt=0, pTaken=0; const lines=[];
+          for(const step of fixedOrder){
+            const {events, dealt} = applyAction(st, step.actor, step.card);
+            if(step.actor==='player') pDealt += dealt; else pTaken += dealt;
+            events.forEach(ev=> lines.push(ev.msg));
+            if(st.player.hp<=0 || st.enemy.hp<=0) break;
+          }
+          return { pDealt, pTaken, finalPHp: st.player.hp, finalEHp: st.enemy.hp, lines };
+        }
+
+        function ExpectedDamagePreview({player, enemy, fixedOrder, willOverdrive, enemyMode, enemyActions}){
+          const res = useMemo(()=> simulatePreview({player, enemy, fixedOrder, willOverdrive, enemyMode, enemyActions}), [player, enemy, fixedOrder, willOverdrive, enemyMode, enemyActions]);
+          return (
+            <div className="bg-slate-900 rounded p-3 text-slate-200 text-sm mb-2">
+              <div className="flex flex-wrap gap-4">
+                <div>🗡️ 플레이어 예상 가한 피해: <span className="text-emerald-300 font-bold">{res.pDealt}</span></div>
+                <div>💥 플레이어 예상 받은 피해: <span className="text-rose-300 font-bold">{res.pTaken}</span></div>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-4">
+                <div>플레이어 HP <span className="text-cyan-400">{player.hp}</span> → <span className="font-bold">{res.finalPHp}</span></div>
+                <div>몬스터 HP <span className="text-orange-400">{enemy.hp}</span> → <span className="font-bold">{res.finalEHp}</span></div>
+                {willOverdrive && <div className="text-cyan-300">(폭주 적용 미리보기)</div>}
+              </div>
+            </div>
+          );
+        }
+
+        function EtherBar({ pts, color="cyan", label }){
+          const slots = etherSlots(pts);
+          const VISIBLE_SLOTS = 8;
+          const percent = Math.min((pts / (ETHER_THRESHOLD * VISIBLE_SLOTS)) * 100, 100);
+          const palette = color === 'fuchsia' ? {
+            base:'bg-fuchsia-500', dim:'bg-fuchsia-900/40', ring:'ring-fuchsia-300', text:'text-fuchsia-300'
+          } : {
+            base:'bg-cyan-500', dim:'bg-cyan-900/40', ring:'ring-cyan-300', text:'text-cyan-300'
+          };
+
+          return (
+            <div className="flex flex-col items-center w-12">
+              <div className={`text-xs ${palette.text} font-bold mb-1 text-center`}>{label}</div>
+              <div className={`relative h-64 w-6 rounded ring-2 ${palette.ring} overflow-hidden bg-slate-900`}>
+                {Array.from({length:VISIBLE_SLOTS}).map((_,i)=> (
+                  <div key={i} className="absolute left-0 right-0 border-t border-slate-700/60" style={{bottom:`${(i/ VISIBLE_SLOTS)*100}%`}} />
+                ))}
+                <div className={`${palette.base} absolute left-0 right-0`} style={{ bottom:0, height:`${percent}%` }} />
+              </div>
+              <div className={`text-xs mt-1 ${palette.text}`}>누적 {pts}pt (슬롯 x{slots})</div>
+            </div>
+          );
+        }
+
+        function TestBadge(){
+          return (
+            <div className="fixed top-2 right-2 bg-amber-500/90 text-black font-bold text-xs px-2 py-1 rounded shadow">
+              저장 1.6 불안정 • 미니멀 프리뷰
+            </div>
+          );
+        }
+
+        // ====================================
+        // BATTLE SYSTEM (Complete from battle.html)
+        // ====================================
+        function BattleSystem() {
+          // Handle battle end and return to appropriate context
+          const handleBattleEnd = (victory) => {
+              const context = GameStateManager.battleContext;
+              if (context && context.returnTo === 'dungeon') {
+                  GameStateManager.exitBattle(victory, context.returnTo);
+              } else {
+                  GameStateManager.exitBattle(victory, 'map');
+              }
+          };
+
+          const [player, setPlayer] = useState({ hp:30, maxHp:30, energy:BASE_PLAYER_ENERGY, maxEnergy:BASE_PLAYER_ENERGY, vulnMult:1, vulnTurns:0, block:0, counter:0, etherPts:0, etherOverdriveActive:false });
+          const [enemyIndex, setEnemyIndex] = useState(0);
+          const [enemy, setEnemy] = useState(null);
+
+          const [phase, setPhase] = useState('select');
+
+          const [hand, setHand] = useState([]);
+          const [selected, setSelected] = useState([]);
+          const [canRedraw, setCanRedraw] = useState(true);
+
+          const [enemyPlan, setEnemyPlan] = useState({ actions:[], mode:null });
+          const [fixedOrder, setFixedOrder] = useState(null);
+
+          const [postCombatOptions, setPostCombatOptions] = useState(null);
+          const [log, setLog] = useState(["게임 시작!"]);
+          const [actionEvents, setActionEvents] = useState({});
+
+          const [queue, setQueue] = useState([]);
+          const [qIndex, setQIndex] = useState(0);
+          const addLog = (m) => setLog(p => [...p, m].slice(-200));
+          const [willOverdrive, setWillOverdrive] = useState(false);
+          const [usedCardIndices, setUsedCardIndices] = useState([]);
+          const logEndRef = useRef(null);
+
+          useEffect(()=>{
+            logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, [log]);
+
+          useEffect(()=>{
+            if(!enemy){
+              const e = ENEMIES[enemyIndex];
+              setEnemy({ ...e, hp:e.hp, maxHp:e.hp, vulnMult:1, vulnTurns:0, block:0, counter:0, etherPts:0, etherOverdriveActive:false });
+              setHand(CARDS.slice(0,8));
+              setSelected([]);
+              setCanRedraw(true);
+              addLog('🎴 시작 손패 8장');
+            }
+          },[]);
+
+          useEffect(()=>{
+            if(!enemy || phase!=='select') return;
+            setFixedOrder(null);
+            setActionEvents({});
+            setCanRedraw(true);
+            setWillOverdrive(false);
+            setPlayer(p=>({ ...p, energy: BASE_PLAYER_ENERGY + etherSlots(p.etherPts), etherOverdriveActive:false }));
+
+            setEnemyPlan(prev=>{
+              if(prev.mode){
+                return { ...prev, actions:[] };
+              } else {
+                const mode = decideEnemyMode();
+                addLog(`🤖 적 성향 힌트: ${mode.name}`);
+                return { actions:[], mode };
+              }
+            });
+          }, [phase, enemy, enemyPlan.mode]);
+
+          useEffect(()=>{
+            if(phase==='resolve' && (!queue || queue.length===0) && fixedOrder && fixedOrder.length>0){
+              const rebuilt = fixedOrder.map(x=>({ actor:x.actor, card:x.card, sp:x.sp }));
+              setQueue(rebuilt); setQIndex(0);
+              addLog('🧯 자동 복구: 실행 큐를 다시 생성했습니다');
+            }
+          }, [phase, queue, fixedOrder]);
+
+          const totalEnergy = useMemo(()=>selected.reduce((s,c)=>s+c.actionCost,0),[selected]);
+          const totalSpeed  = useMemo(()=>selected.reduce((s,c)=>s+c.speedCost ,0),[selected]);
+          const currentCombo = useMemo(()=>detectPokerCombo(selected),[selected]);
+
+          const toggle = (card)=>{
+            if(phase!=='select' && phase!=='respond') return;
+            const exists = selected.some(s=>s.id===card.id);
+            if(phase==='respond'){
+              setSelected(prev=>{
+                let next;
+                if(exists){ next = prev.filter(s=>!(s.__uid===card.__uid) && !(s.id===card.id && !('__uid' in s))); }
+                else {
+                  if(prev.length >= MAX_SUBMIT_CARDS){ addLog('⚠️ 최대 5장의 카드만 제출할 수 있습니다'); return prev; }
+                  if(totalSpeed + card.speedCost > MAX_SPEED){ addLog('⚠️ 속도 초과'); return prev; }
+                  if(totalEnergy + card.actionCost > (BASE_PLAYER_ENERGY + etherSlots(player.etherPts))){ addLog('⚠️ 행동력 부족'); return prev; }
+                  next = [...prev, { ...card, __uid: Math.random().toString(36).slice(2)}];
+                }
+                const combo = detectPokerCombo(next);
+                const enhanced = applyPokerBonus(next, combo);
+                setFixedOrder(sortCombinedOrderStablePF(enhanced, enemyPlan.actions||[]));
+                return next;
+              });
+              return;
+            }
+            if(exists){ setSelected(selected.filter(s=>s.id!==card.id)); return; }
+            if(selected.length >= MAX_SUBMIT_CARDS) return addLog('⚠️ 최대 5장의 카드만 제출할 수 있습니다');
+            if(totalSpeed + card.speedCost > MAX_SPEED) return addLog('⚠️ 속도 초과');
+            if(totalEnergy + card.actionCost > (BASE_PLAYER_ENERGY + etherSlots(player.etherPts))) return addLog('⚠️ 행동력 부족');
+            setSelected([...selected, { ...card, __uid: Math.random().toString(36).slice(2)}]);
+          };
+
+          const moveUp = (i)=>{
+            if(i===0) return;
+            if(phase==='respond'){
+              setSelected(prev=>{
+                const n=[...prev]; [n[i-1],n[i]]=[n[i],n[i-1]];
+                const combo = detectPokerCombo(n);
+                const enhanced = applyPokerBonus(n, combo);
+                setFixedOrder(sortCombinedOrderStablePF(enhanced, enemyPlan.actions||[]));
+                return n;
+              });
+            } else {
+              const n=[...selected]; [n[i-1],n[i]]=[n[i],n[i-1]]; setSelected(n);
+            }
+          };
+
+          const moveDown = (i)=>{
+            if(i===selected.length-1) return;
+            if(phase==='respond'){
+              setSelected(prev=>{
+                const n=[...prev]; [n[i],n[i+1]]=[n[i+1],n[i]];
+                const combo = detectPokerCombo(n);
+                const enhanced = applyPokerBonus(n, combo);
+                setFixedOrder(sortCombinedOrderStablePF(enhanced, enemyPlan.actions||[]));
+                return n;
+              });
+            } else {
+              const n=[...selected]; [n[i],n[i+1]]=[n[i+1],n[i]]; setSelected(n);
+            }
+          };
+
+          const redrawHand = ()=>{
+            if(!canRedraw) return addLog('🔒 이미 이번 턴 리드로우 사용됨');
+            setHand(CARDS.slice(0,8)); setSelected([]); setCanRedraw(false); addLog('🔄 손패 리드로우 사용');
+          };
+
+          const startResolve = ()=>{
+            if(phase!=='select') return;
+            const actions = generateEnemyActions(enemy, enemyPlan.mode, etherSlots(enemy.etherPts));
+            setEnemyPlan(prev=>({ ...prev, actions }));
+
+            const pCombo = detectPokerCombo(selected);
+            const enhancedSelected = applyPokerBonus(selected, pCombo);
+
+            const q = sortCombinedOrderStablePF(enhancedSelected, actions);
+            setFixedOrder(q);
+            addLog(`🤖 적 카드 공개 (대응 단계)`);
+            setPhase('respond');
+          };
+
+          useEffect(()=>{
+            if(phase==='respond' && enemyPlan.actions && enemyPlan.actions.length>0){
+              const combo = detectPokerCombo(selected);
+              const enhancedSelected = applyPokerBonus(selected, combo);
+              const q = sortCombinedOrderStablePF(enhancedSelected, enemyPlan.actions);
+              setFixedOrder(q);
+            }
+          }, [selected, phase, enemyPlan.actions]);
+
+          const beginResolveFromRespond = ()=>{
+            if(!fixedOrder) return addLog('오류: 고정된 순서가 없습니다');
+
+            if(fixedOrder.length===0){
+              addLog('⚠️ 실행할 행동이 없습니다. 최소 1장 이상을 유지하거나 적이 행동 가능한 상태여야 합니다.');
+              return;
+            }
+
+            const pComboNow = detectPokerCombo(selected);
+            const eComboNow = detectPokerCombo(enemyPlan.actions);
+            if(pComboNow && ETHER_GAIN_MAP[pComboNow.name]){
+              const gain = ETHER_GAIN_MAP[pComboNow.name];
+              setPlayer(p=>({ ...p, etherPts: addEther(p.etherPts, gain) }));
+              addLog(`✴️ 에테르 +${gain} (플레이어 족보: ${pComboNow.name})`);
+            }
+            if(eComboNow && ETHER_GAIN_MAP[eComboNow.name]){
+              const gainE = ETHER_GAIN_MAP[eComboNow.name];
+              setEnemy(e=>({ ...e, etherPts: addEther(e.etherPts, gainE) }));
+              addLog(`☄️ 적 에테르 +${gainE} (적 족보: ${eComboNow.name})`);
+            }
+
+            const enemyWillOD = shouldEnemyOverdrive(enemyPlan.mode, enemyPlan.actions, enemy.etherPts) && etherSlots(enemy.etherPts)>0;
+            if((phase==='respond' || phase==='select') && willOverdrive && etherSlots(player.etherPts)>0){
+              setPlayer(p=>({ ...p, etherPts: p.etherPts - ETHER_THRESHOLD, etherOverdriveActive:true }));
+              addLog('✴️ 에테르 폭주 발동! (이 턴 전체 유지)');
+            }
+            if((phase==='respond' || phase==='select') && enemyWillOD){
+              setEnemy(e=>({ ...e, etherPts: e.etherPts - ETHER_THRESHOLD, etherOverdriveActive:true }));
+              addLog('☄️ 적 에테르 폭주 발동!');
+            }
+
+            const newQ = fixedOrder.map(x=>({ actor:x.actor, card:x.card, sp:x.sp }));
+            if(newQ.length===0){
+              addLog('⚠️ 큐 생성 실패: 실행할 항목이 없습니다');
+              return;
+            }
+            setQueue(newQ);
+            setQIndex(0); setPhase('resolve'); addLog('▶ 진행 시작');
+          };
+
+          const stepOnce = ()=>{
+            if(qIndex>=queue.length) return;
+            const a = queue[qIndex];
+
+            if(a.actor === 'player') {
+              setUsedCardIndices(prev => [...prev, qIndex]);
+              setTimeout(() => {
+                setUsedCardIndices(prev => prev.filter(i => i !== qIndex));
+              }, 800);
+            }
+
+            const P = { ...player, def: player.def||false, block: player.block||0, counter: player.counter||0, vulnMult: player.vulnMult||1 };
+            const E = { ...enemy,  def: enemy.def||false,  block: enemy.block||0,  counter: enemy.counter||0,  vulnMult: enemy.vulnMult||1 };
+            const tempState = { player:P, enemy:E, log:[] };
+            const {events} = applyAction(tempState, a.actor, a.card);
+
+            setPlayer(prev=>({ ...prev, hp:P.hp, def:P.def, block:P.block, counter:P.counter, vulnMult:P.vulnMult||1 }));
+            setEnemy(prev=>({  ...prev, hp:E.hp, def:E.def, block:E.block, counter:E.counter, vulnMult:E.vulnMult||1 }));
+            setActionEvents(prev=>({ ...prev, [qIndex]: events }));
+            events.forEach(ev=> addLog(ev.msg));
+            setQIndex(prev=>prev+1);
+
+            if(P.hp<=0){ setPostCombatOptions({ type:'defeat' }); setPhase('post'); handleBattleEnd(false); return; }
+            if(E.hp<=0){ setPostCombatOptions({ type:'victory' }); setPhase('post'); handleBattleEnd(true); return; }
+          };
+
+          const finishTurn = (reason)=>{
+            addLog(`턴 종료: ${reason||''}`);
+            setPlayer(p=>({ ...p, block:0, def:false, counter:0, vulnMult:1, vulnTurns:0, etherOverdriveActive:false }));
+            setEnemy(e=>({ ...e, block:0, def:false, counter:0, vulnMult:1, vulnTurns:0, etherOverdriveActive:false }));
+            setSelected([]); setQueue([]); setQIndex(0); setFixedOrder(null); setUsedCardIndices([]);
+            setPhase('select');
+          };
+
+          const runAll = ()=>{
+            if(qIndex>=queue.length) return;
+            let P = { ...player, def: player.def||false, block: player.block||0, counter: player.counter||0, vulnMult: player.vulnMult||1 };
+            let E = { ...enemy,  def: enemy.def||false,  block: enemy.block||0,  counter: enemy.counter||0,  vulnMult: enemy.vulnMult||1 };
+            const tempState = { player:P, enemy:E, log:[] };
+            const newEvents = {};
+
+            for(let i=qIndex;i<queue.length;i++){
+              const a = queue[i];
+              const {events} = applyAction(tempState, a.actor, a.card);
+              newEvents[i] = events;
+              events.forEach(ev=> addLog(ev.msg));
+              if(P.hp<=0){
+                setPlayer(prev=>({ ...prev, hp:P.hp, def:P.def, block:P.block, counter:P.counter, vulnMult:P.vulnMult||1 }));
+                setEnemy(prev=>({  ...prev, hp:E.hp, def:E.def, block:E.block, counter:E.counter, vulnMult:E.vulnMult||1 }));
+                setActionEvents(prev=>({ ...prev, ...newEvents }));
+                setQIndex(i+1);
+                setPostCombatOptions({ type:'defeat' }); setPhase('post'); handleBattleEnd(false);
+                return;
+              }
+              if(E.hp<=0){
+                setPlayer(prev=>({ ...prev, hp:P.hp, def:P.def, block:P.block, counter:P.counter, vulnMult:P.vulnMult||1 }));
+                setEnemy(prev=>({  ...prev, hp:E.hp, def:E.def, block:E.block, counter:E.counter, vulnMult:E.vulnMult||1 }));
+                setActionEvents(prev=>({ ...prev, ...newEvents }));
+                setQIndex(i+1);
+                setPostCombatOptions({ type:'victory' }); setPhase('post'); handleBattleEnd(true);
+                return;
+              }
+            }
+            setPlayer(prev=>({ ...prev, hp:P.hp, def:P.def, block:P.block, counter:P.counter, vulnMult:P.vulnMult||1 }));
+            setEnemy(prev=>({  ...prev, hp:E.hp, def:E.def, block:E.block, counter:E.counter, vulnMult:E.vulnMult||1 }));
+            setActionEvents(prev=>({ ...prev, ...newEvents }));
+            setQIndex(queue.length);
+          };
+
+          const nextEnemy = ()=>{
+            const next = enemyIndex + 1;
+            if(next < ENEMIES.length){
+              const heal = Math.floor(player.maxHp*0.3);
+              setPlayer(p=>({ ...p, hp: Math.min(p.maxHp, p.hp+heal), energy: BASE_PLAYER_ENERGY, block:0, counter:0, vulnMult:1, vulnTurns:0, etherOverdriveActive:false }));
+              const e = ENEMIES[next];
+              setEnemy({ ...e, hp:e.hp, maxHp:e.hp, vulnMult:1, vulnTurns:0, block:0, counter:0, etherPts:0, etherOverdriveActive:false });
+              setEnemyIndex(next); setSelected([]); setHand(CARDS.slice(0,8)); setEnemyPlan({ actions:[], mode: null }); setFixedOrder(null); setQueue([]); setQIndex(0); setCanRedraw(true); setPostCombatOptions(null); addLog(`➡️ 다음 몬스터 등장: ${e.name} (손패 리셋)`); setPhase('select');
+            } else { addLog('🏆 모든 적 처치 - 게임 끝'); }
+          };
+
+          const removeSelectedAt = (i)=> setSelected(selected.filter((_,idx)=>idx!==i));
+
+          const playerTimeline = useMemo(()=>{
+            if(phase==='select'){
+              let ps=0; return selected.map((c,idx)=>{ ps+=c.speedCost; return { actor:'player', card:c, sp:ps, idx }; });
+            }
+            if(phase==='respond' && fixedOrder) return fixedOrder.filter(x=>x.actor==='player');
+            if(phase==='resolve') return queue.filter(x=>x.actor==='player');
+            return [];
+          }, [phase, selected, fixedOrder, queue]);
+
+          const enemyTimeline = useMemo(()=>{
+            if(phase==='select') return [];
+            if(phase==='respond' && fixedOrder) return fixedOrder.filter(x=>x.actor==='enemy');
+            if(phase==='resolve') return queue.filter(x=>x.actor==='enemy');
+            return [];
+          }, [phase, fixedOrder, queue]);
+
+          if(!enemy) return <div className="text-white p-4">로딩…</div>;
+
+          const handDisabled = (c)=> (
+            selected.length >= MAX_SUBMIT_CARDS ||
+            totalSpeed + c.speedCost > MAX_SPEED ||
+            totalEnergy + c.actionCost > (BASE_PLAYER_ENERGY + etherSlots(player.etherPts))
+          );
+
+          return (
+            <div className="w-full min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 pb-64">
+              <TestBadge/>
+
+              <div className="max-w-[1600px] mx-auto p-4">
+
+                {/* Timeline */}
+                <div className="panel-enhanced p-4 mb-6">
+                  <div className="text-white font-bold mb-3 flex items-center gap-2">
+                    <Clock size={20} className="text-cyan-400"/>
+                    타임라인 (누적 속도) — {phase==='select'? '선택' : (phase==='respond'? '대응/예측' : (phase==='resolve' ? '진행' : '결과'))} <span className="text-xs text-slate-300 ml-2">(동률 시 플레이어 우선)</span>
+                  </div>
+
+                  <div className="relative h-36 bg-slate-900 rounded p-2 space-y-2">
+                    {/* Player row */}
+                    <div className="relative h-16 bg-slate-900 rounded">
+                      {Array.from({length: MAX_SPEED + 1}).map((_,i)=>(
+                        <div key={i} className="absolute top-0 bottom-0 border-l border-slate-700" style={{left:`${(i/MAX_SPEED)*100}%`}}>
+                          {i%5===0 && <span className="absolute -top-6 -left-2 text-xs text-slate-400">{i}</span>}
+                        </div>
+                      ))}
+                      {playerTimeline.map((a,idx)=>{
+                        const Icon = a.card.icon || Sword;
+                        const sameCount = playerTimeline.filter((q,i)=>i<idx && q.sp===a.sp).length;
+                        const offset = sameCount*28;
+                        const num = a.card.type==='attack' ? (a.card.damage*(a.card.hits||1)) : (a.card.block || 0);
+                        return (
+                          <div key={idx}
+                               className={`absolute left-0 top-2 transform -translate-x-1/2 flex items-center gap-1 px-2 py-1 rounded-full ${a.actor==='player'? 'bg-blue-500 ring-2 ring-blue-300':''}`}
+                               style={{left:`${(a.sp/MAX_SPEED)*100}%`, top:`${6+offset}px`, zIndex:20}}>
+                            <Icon size={14} className="text-white"/>
+                            <span className="text-white text-xs font-bold">{num>0?num:''}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="h-px bg-slate-700" />
+
+                    {/* Enemy row */}
+                    <div className="relative h-16 bg-slate-900 rounded">
+                      {Array.from({length: MAX_SPEED + 1}).map((_,i)=>(
+                        <div key={i} className="absolute top-0 bottom-0 border-l border-slate-700" style={{left:`${(i/MAX_SPEED)*100}%`}} />
+                      ))}
+                      {enemyTimeline.map((a,idx)=>{
+                        const Icon = a.card.icon || Shield;
+                        const sameCount = enemyTimeline.filter((q,i)=>i<idx && q.sp===a.sp).length;
+                        const offset = sameCount*28;
+                        const num = a.card.type==='attack' ? (a.card.damage*(a.card.hits||1)) : (a.card.block || 0);
+                        return (
+                          <div key={idx}
+                               className={`absolute left-0 top-2 transform -translate-x-1/2 flex items-center gap-1 px-2 py-1 rounded-full ${a.actor==='enemy'? 'bg-orange-500 ring-2 ring-orange-300':''}`}
+                               style={{left:`${(a.sp/MAX_SPEED)*100}%`, top:`${6+offset}px`, zIndex:10}}>
+                            <Icon size={14} className="text-white"/>
+                            <span className="text-white text-xs font-bold">{num>0?num:''}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expected damage preview */}
+                {(phase==='respond' || phase==='select') && (
+                  <div className="flex justify-center mt-4">
+                    <ExpectedDamagePreview player={player} enemy={enemy} fixedOrder={fixedOrder||playerTimeline} willOverdrive={willOverdrive} enemyMode={enemyPlan.mode} enemyActions={enemyPlan.actions}/>
+                  </div>
+                )}
+
+                {/* Battle Arena */}
+                <div className="battle-arena p-8 mb-6">
+                      <div className="flex justify-between items-center">
+                        {/* Player Ether Bar */}
+                        <div className="flex flex-col items-center">
+                          <div className="text-cyan-400 font-black text-sm mb-2">에테르</div>
+                          <div className="ether-bar-vertical player">
+                            <div className="ether-fill-vertical player" style={{height: `${Math.min((player.etherPts / 800) * 100, 100)}%`}}></div>
+                          </div>
+                          <div className="text-cyan-400 font-bold text-xs mt-2">{player.etherPts}pt</div>
+                          <div className="text-cyan-300 text-xs">×{etherSlots(player.etherPts)}</div>
+                        </div>
+
+                        {/* Player Side */}
+                        <div className="flex items-center gap-6">
+                          <div className="character-display">🧙‍♂️</div>
+                          <div>
+                            <div className="text-cyan-400 font-black text-2xl mb-2">플레이어</div>
+                            <div className="hp-bar-enhanced mb-3" style={{width: '300px'}}>
+                              <div className="hp-fill" style={{width: `${(player.hp/player.maxHp)*100}%`}}></div>
+                            </div>
+                            <div className="text-white font-black text-xl mb-2">
+                              ❤️ {player.hp}/{player.maxHp}
+                            </div>
+                            <div className="flex gap-2 flex-wrap">
+                              {player.block>0 && <span className="px-3 py-1 rounded-full bg-blue-700 text-white text-sm font-bold">🛡️ {player.block}</span>}
+                              {player.vulnMult>1 && <span className="px-3 py-1 rounded-full bg-red-700 text-white text-sm font-bold">취약 ×{player.vulnMult.toFixed(1)}</span>}
+                              {player.etherOverdriveActive && <span className="px-3 py-1 rounded-full bg-cyan-600 text-white text-sm font-bold animate-pulse">⚡폭주</span>}
+                            </div>
+                            <button onClick={()=> (phase==='select' || phase==='respond') && setWillOverdrive(v=>!v)}
+                                    disabled={!(phase==='select'||phase==='respond') || etherSlots(player.etherPts)<=0}
+                                    className={`mt-3 btn-enhanced ${willOverdrive? 'btn-primary':''} text-sm`}>
+                              ⚡ 에테르 폭주 {willOverdrive?'ON':'OFF'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* VS */}
+                        <div className="text-center">
+                          {phase==='respond' && (
+                            <div className="bg-slate-800 rounded-lg px-6 py-3 mb-4 mx-auto" style={{width: '400px', maxWidth: '90vw'}}>
+                              <div className="text-white font-bold text-lg text-center">🔍 대응 단계</div>
+                              <div className="text-slate-300 text-xs text-center mt-1">순서를 조정하거나 에테르 폭주를 토글한 뒤 진행하세요</div>
+                            </div>
+                          )}
+                          {phase==='resolve' && (
+                            <div className="bg-slate-800 rounded-lg px-6 py-3 mb-4 mx-auto" style={{width: '400px', maxWidth: '90vw'}}>
+                              <div className="text-white font-bold text-lg text-center">▶ 진행 중 ({qIndex}/{queue?.length || 0})</div>
+                            </div>
+                          )}
+
+                          <div className="text-8xl mb-4">⚔️</div>
+                          <div className="text-slate-400 font-black mb-3">VS</div>
+
+                          {/* Log */}
+                          <div className="bg-slate-800/90 rounded-lg px-4 py-2 mt-4" style={{width: '500px', maxWidth: '90vw'}}>
+                            <div className="flex items-center gap-2">
+                              <div className="text-white font-bold text-xs whitespace-nowrap">📜</div>
+                              <div className="flex-1 overflow-y-auto text-xs text-slate-300" style={{maxHeight: '60px'}}>
+                                {log.slice(-6).map((l,i)=>(<div key={i} className="mb-1">{l}</div>))}
+                                <div ref={logEndRef}></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Enemy Side */}
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            {enemyPlan.mode && (
+                              <div className="text-amber-400 font-bold text-sm mb-1">
+                                {enemyPlan.mode.name}
+                              </div>
+                            )}
+                            <div className="text-orange-400 font-black text-2xl mb-2">{enemy.name}</div>
+                            <div className="hp-bar-enhanced mb-3" style={{width: '300px'}}>
+                              <div className="hp-fill" style={{width: `${(enemy.hp/enemy.maxHp)*100}%`}}></div>
+                            </div>
+                            <div className="text-white font-black text-xl mb-2">
+                              ❤️ {enemy.hp}/{enemy.maxHp}
+                            </div>
+                            <div className="flex gap-2 flex-wrap justify-end">
+                              {enemy.block>0 && <span className="px-3 py-1 rounded-full bg-blue-700 text-white text-sm font-bold">🛡️ {enemy.block}</span>}
+                              {enemy.vulnMult>1 && <span className="px-3 py-1 rounded-full bg-red-700 text-white text-sm font-bold">취약 ×{enemy.vulnMult.toFixed(1)}</span>}
+                              {enemy.etherOverdriveActive && <span className="px-3 py-1 rounded-full bg-fuchsia-600 text-white text-sm font-bold animate-pulse">⚡폭주</span>}
+                            </div>
+                            <div className="text-slate-400 text-sm mt-2">적 {enemyIndex+1}/{ENEMIES.length}</div>
+                          </div>
+                          <div className="character-display">🐉</div>
+                        </div>
+
+                        {/* Enemy Ether Bar */}
+                        <div className="flex flex-col items-center">
+                          <div className="text-fuchsia-400 font-black text-sm mb-2">에테르</div>
+                          <div className="ether-bar-vertical enemy">
+                            <div className="ether-fill-vertical enemy" style={{height: `${Math.min((enemy.etherPts / 800) * 100, 100)}%`}}></div>
+                          </div>
+                          <div className="text-fuchsia-400 font-bold text-xs mt-2">{enemy.etherPts}pt</div>
+                          <div className="text-fuchsia-300 text-xs">×{etherSlots(enemy.etherPts)}</div>
+                        </div>
+                      </div>
+                </div>
+              </div>
+
+              {/* Resolve phase - submitted cards */}
+              {phase==='resolve' && queue.length > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 submitted-cards-area z-100">
+                  <div className="flex items-center justify-between mb-4 max-w-[1600px] mx-auto px-4">
+                    <div className="text-white font-black text-2xl">⚔️ 전투 진행 중... ({qIndex}/{queue.length})</div>
+                    <div className="flex gap-2">
+                      <button onClick={stepOnce} disabled={qIndex>=queue.length} className="btn-enhanced flex items-center gap-2">
+                        <StepForward size={18}/> 한 단계
+                      </button>
+                      <button onClick={runAll} disabled={qIndex>=queue.length} className="btn-enhanced btn-primary">
+                        전부 실행
+                      </button>
+                      {qIndex >= queue.length && (
+                        <button onClick={()=>finishTurn('수동 턴 종료')} className="btn-enhanced flex items-center gap-2">
+                          ⏭️ 턴 종료
+                        </button>
+                      )}
+                      {enemy && enemy.hp <= 0 && (
+                        <button onClick={nextEnemy} disabled={enemyIndex >= ENEMIES.length - 1} className="btn-enhanced flex items-center gap-2">
+                          ➡️ 다음 적
+                        </button>
+                      )}
+                      {player && player.hp <= 0 && (
+                        <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
+                          🔄 재시작
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="hand-cards">
+                    {queue.filter(a => a.actor === 'player').map((a,i)=>{
+                      const Icon = a.card.icon;
+                      const globalIndex = queue.findIndex(q => q === a);
+                      const isUsed = usedCardIndices.includes(globalIndex);
+                      const isPast = globalIndex < qIndex;
+                      return (
+                        <div key={`resolve-${globalIndex}`}
+                             className={`game-card-large ${a.card.type==='attack' ? 'attack' : 'defense'} ${isUsed ? 'card-used' : ''} ${isPast ? 'opacity-30' : ''}`}>
+                          <div className="card-cost-corner">{a.card.actionCost}</div>
+                          <div className="card-header">
+                            <div className="text-white font-black text-sm">{a.card.name}</div>
+                          </div>
+                          <div className="card-icon-area">
+                            <Icon size={60} className="text-white opacity-80"/>
+                          </div>
+                          <div className="card-footer">
+                            <div className="flex items-center justify-center gap-2 text-white text-sm font-bold">
+                              {a.card.damage && <span className="text-red-300">⚔️{a.card.damage}{a.card.hits?`×${a.card.hits}`:''}</span>}
+                              {a.card.block && <span className="text-blue-300">🛡️{a.card.block}</span>}
+                              {a.card.counter!==undefined && <span className="text-purple-300">⚡{a.card.counter}</span>}
+                            </div>
+                            <div className="text-cyan-300 text-xs mt-1">⏱️{a.card.speedCost}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Respond phase - submitted cards */}
+              {phase==='respond' && selected.length > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 submitted-cards-area z-100">
+                  <div className="flex items-center justify-between mb-4 max-w-[1600px] mx-auto px-4">
+                    <div className="text-white font-black text-2xl">📋 제출된 카드</div>
+
+                    {currentCombo && (
+                      <div className="combo-display">
+                        ⭐ {currentCombo.name} ⭐
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button onClick={beginResolveFromRespond} className="btn-enhanced btn-success flex items-center gap-2">
+                        <Play size={20}/> 진행 시작
+                      </button>
+                      {enemy && enemy.hp <= 0 && (
+                        <button onClick={nextEnemy} disabled={enemyIndex >= ENEMIES.length - 1} className="btn-enhanced flex items-center gap-2">
+                          ➡️ 다음 적
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="hand-cards">
+                    {selected.map((c,i)=>{
+                      const Icon=c.icon;
+                      return (
+                        <div key={`${c.__uid}-${i}`} className="relative">
+                          <div className={`game-card-large ${c.type==='attack' ? 'attack' : 'defense'}`}>
+                            <div className="card-cost-corner">{c.actionCost}</div>
+                            <div className="selection-number">{i + 1}</div>
+                            <div className="card-header">
+                              <div className="text-white font-black text-sm">{c.name}</div>
+                            </div>
+                            <div className="card-icon-area">
+                              <Icon size={60} className="text-white opacity-80"/>
+                            </div>
+                            <div className="card-footer">
+                              <div className="flex items-center justify-center gap-2 text-white text-sm font-bold">
+                                {c.damage && <span className="text-red-300">⚔️{c.damage}{c.hits?`×${c.hits}`:''}</span>}
+                                {c.block && <span className="text-blue-300">🛡️{c.block}</span>}
+                                {c.counter!==undefined && <span className="text-purple-300">⚡{c.counter}</span>}
+                              </div>
+                              <div className="text-cyan-300 text-xs mt-1">⏱️{c.speedCost}</div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-center mt-2">
+                            <button onClick={()=>moveUp(i)} disabled={i===0} className="card-move-btn">
+                              ←
+                            </button>
+                            <button onClick={()=>moveDown(i)} disabled={i===selected.length-1} className="card-move-btn">
+                              →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Hand area */}
+              {(phase==='select' || (enemy && enemy.hp <= 0) || (player && player.hp <= 0)) && (
+                <div className="hand-area">
+                  <div className="flex items-center justify-between mb-4 max-w-[1600px] mx-auto px-4">
+                    <div className="flex items-center gap-4">
+                      {phase==='select' && (
+                        <>
+                          <div className="energy-orb-large">
+                            {(BASE_PLAYER_ENERGY + etherSlots(player.etherPts)) - totalEnergy}
+                          </div>
+                          <div>
+                            <div className="text-white font-black text-xl">손패</div>
+                            <div className="text-slate-400 text-sm">
+                              속도: {totalSpeed}/{MAX_SPEED} | 선택: {selected.length}/{MAX_SUBMIT_CARDS}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      {enemy && enemy.hp <= 0 && (
+                        <div className="text-emerald-300 font-black text-2xl">🏆 적 처치!</div>
+                      )}
+                      {player && player.hp <= 0 && (
+                        <div className="text-rose-300 font-black text-2xl">💀 패배...</div>
+                      )}
+                    </div>
+
+                    {phase==='select' && currentCombo && (
+                      <div className="combo-display">
+                        ⭐ {currentCombo.name} ⭐
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      {phase==='select' && (
+                        <>
+                          <button onClick={redrawHand} disabled={!canRedraw} className="btn-enhanced flex items-center gap-2">
+                            <RefreshCw size={18}/> 리드로우
+                          </button>
+                          <button onClick={startResolve} disabled={selected.length===0} className="btn-enhanced btn-primary flex items-center gap-2">
+                            <Play size={20}/> 제출
+                          </button>
+                        </>
+                      )}
+                      {enemy && enemy.hp <= 0 && (
+                        <button onClick={nextEnemy} disabled={enemyIndex >= ENEMIES.length - 1} className="btn-enhanced flex items-center gap-2">
+                          ➡️ 다음 적
+                        </button>
+                      )}
+                      {player && player.hp <= 0 && (
+                        <button onClick={()=>window.location.reload()} className="btn-enhanced flex items-center gap-2">
+                          🔄 재시작
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {phase==='select' && (
+                    <div className="hand-cards">
+                      {hand.map((c,idx)=>{
+                        const Icon=c.icon;
+                        const selIndex = selected.findIndex(s=>s.id===c.id);
+                        const sel = selIndex !== -1;
+                        const disabled = handDisabled(c) && !sel;
+                        return (
+                          <button key={c.id+idx} onClick={()=>toggle(c)} disabled={disabled}
+                                  className={`game-card-large ${c.type==='attack' ? 'attack' : 'defense'} ${sel ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}>
+                            <div className="card-cost-corner">{c.actionCost}</div>
+                            {sel && <div className="selection-number">{selIndex + 1}</div>}
+                            <div className="card-header">
+                              <div className="text-white font-black text-sm">{c.name}</div>
+                            </div>
+                            <div className="card-icon-area">
+                              <Icon size={60} className="text-white opacity-80"/>
+                            </div>
+                            <div className="card-footer">
+                              <div className="flex items-center justify-center gap-2 text-white text-sm font-bold">
+                                {c.damage && <span className="text-red-300">⚔️{c.damage}{c.hits?`×${c.hits}`:''}</span>}
+                                {c.block && <span className="text-blue-300">🛡️{c.block}</span>}
+                                {c.counter!==undefined && <span className="text-purple-300">⚡{c.counter}</span>}
+                              </div>
+                              <div className="text-cyan-300 text-xs mt-1">⏱️{c.speedCost}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // ====================================
+        // RENDER
+        // ====================================
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<IntegratedGame />);
+    </script>
+</body>
+</html>
