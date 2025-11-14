@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameStore } from "../../state/gameStore";
 
 const NODE_WIDTH = 96;
@@ -117,6 +117,8 @@ export function MapDemo() {
   const revealDungeonInfo = useGameStore((state) => state.revealDungeonInfo);
   const clearBattleResult = useGameStore((state) => state.clearBattleResult);
 
+  const [battleResultCountdown, setBattleResultCountdown] = useState(3);
+
   const nodes = map?.nodes ?? [];
   const mapViewRef = useRef(null);
   const riskDisplay = Number.isFinite(mapRisk) ? mapRisk.toFixed(1) : "-";
@@ -165,6 +167,34 @@ export function MapDemo() {
       behavior: "smooth",
     });
   }, [map?.currentNodeId, nodes]);
+
+  useEffect(() => {
+    if (!lastBattleResult) {
+      setBattleResultCountdown(3);
+      return;
+    }
+
+    setBattleResultCountdown(3);
+
+    const countdownInterval = setInterval(() => {
+      setBattleResultCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    const closeTimer = setTimeout(() => {
+      clearBattleResult();
+    }, 3000);
+
+    return () => {
+      clearInterval(countdownInterval);
+      clearTimeout(closeTimer);
+    };
+  }, [lastBattleResult, clearBattleResult]);
 
   const availablePrayers = useMemo(
     () => PRAYER_COSTS.filter((cost) => (resources.aether ?? 0) >= cost),
@@ -395,6 +425,9 @@ export function MapDemo() {
                </ul>
              </div>
            ) : null}
+            <p style={{ fontSize: "14px", color: "#888", marginTop: "12px" }}>
+              {battleResultCountdown}초 후 자동으로 닫힙니다
+            </p>
             <button type="button" className="close-btn" onClick={clearBattleResult}>
               확인
             </button>
