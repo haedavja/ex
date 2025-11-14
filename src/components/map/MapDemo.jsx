@@ -124,7 +124,8 @@ export function MapDemo() {
   const riskDisplay = Number.isFinite(mapRisk) ? mapRisk.toFixed(1) : "-";
   const aetherValue = resources.aether ?? 0;
   const aetherRatio = Math.max(0, Math.min(1, aetherValue / 10));
-  const aetherTier = aetherValue >= 5 ? "x5" : aetherValue >= 3 ? "x3" : aetherValue > 0 ? "x1" : "x0";
+  const aetherSlots = Math.floor(aetherValue / 100);
+  const aetherTier = `x${aetherSlots}`;
 
   const mapHeight = useMemo(() => {
     if (!nodes.length) return 800;
